@@ -34,7 +34,11 @@ export const DOCK_LAYOUT = [
 
 export const DRAWER_STAGES_LAYOUT = (() => {
   const rects = [
-    { id: 'watchEruption', kind: 'button', x0: 944, y0: 26, x1: 1244, y1: 98 },
+    { id: 'speed05', kind: 'button', x0: 540, y0: 28, x1: 626, y1: 96 },
+    { id: 'speed1', kind: 'button', x0: 636, y0: 28, x1: 722, y1: 96 },
+    { id: 'speed2', kind: 'button', x0: 732, y0: 28, x1: 818, y1: 96 },
+    { id: 'speed4', kind: 'button', x0: 828, y0: 28, x1: 914, y1: 96 },
+    { id: 'watchEruption', kind: 'button', x0: 938, y0: 26, x1: 1244, y1: 98 },
   ];
   const cols = 4;
   const xStart = 36;
@@ -183,6 +187,24 @@ function createRoundedPanelGeometry(w, h, r, curveSeg = 14) {
   }
   uv.needsUpdate = true;
   return g;
+}
+
+function createRoundedBorderGeometry(w, h, r, curveSeg = 14) {
+  const hw = w * 0.5;
+  const hh = h * 0.5;
+  const rad = Math.min(r, hw, hh);
+  const s = new THREE.Shape();
+  s.moveTo(-hw + rad, -hh);
+  s.lineTo(hw - rad, -hh);
+  s.quadraticCurveTo(hw, -hh, hw, -hh + rad);
+  s.lineTo(hw, hh - rad);
+  s.quadraticCurveTo(hw, hh, hw - rad, hh);
+  s.lineTo(-hw + rad, hh);
+  s.quadraticCurveTo(-hw, hh, -hw, hh - rad);
+  s.lineTo(-hw, -hh + rad);
+  s.quadraticCurveTo(-hw, -hh, -hw + rad, -hh);
+  const pts = s.getPoints(curveSeg * 4);
+  return new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, p.y, 0)));
 }
 
 function buildTabletopSkirtGeometry(cx, cz, span = 16000, nE = 128) {
@@ -406,6 +428,110 @@ function rrect(ctx, x, y, w, h, r) {
   }
 }
 
+function drawIcon(g, name, cx, cy, s, col = '#f3f1ea') {
+  g.save();
+  g.translate(cx, cy);
+  g.strokeStyle = col;
+  g.fillStyle = col;
+  g.lineWidth = Math.max(2, s * 0.14);
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  if (name === 'play') {
+    g.beginPath();
+    g.moveTo(-s * 0.42, -s * 0.56);
+    g.lineTo(s * 0.62, 0);
+    g.lineTo(-s * 0.42, s * 0.56);
+    g.closePath();
+    g.fill();
+  } else if (name === 'pause') {
+    const w = s * 0.28, h = s * 0.96, gap = s * 0.2;
+    rrect(g, -gap - w, -h * 0.5, w, h, w * 0.35);
+    g.fill();
+    rrect(g, gap, -h * 0.5, w, h, w * 0.35);
+    g.fill();
+  } else if (name === 'prev' || name === 'next') {
+    const dir = name === 'next' ? 1 : -1;
+    g.beginPath();
+    g.moveTo(-dir * s * 0.24, -s * 0.44);
+    g.lineTo(dir * s * 0.28, 0);
+    g.lineTo(-dir * s * 0.24, s * 0.44);
+    g.stroke();
+  } else if (name === 'layers') {
+    for (const dy of [-0.36, 0, 0.36]) {
+      g.beginPath();
+      g.moveTo(-s * 0.55, dy * s);
+      g.lineTo(0, (dy - 0.22) * s);
+      g.lineTo(s * 0.55, dy * s);
+      g.lineTo(0, (dy + 0.22) * s);
+      g.closePath();
+      g.stroke();
+    }
+  } else if (name === 'sliders') {
+    for (const [yy, kx] of [[-0.36, -0.22], [0, 0.28], [0.36, -0.05]]) {
+      g.beginPath();
+      g.moveTo(-s * 0.56, yy * s);
+      g.lineTo(s * 0.56, yy * s);
+      g.stroke();
+      g.beginPath();
+      g.arc(kx * s, yy * s, s * 0.14, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (name === 'target') {
+    g.beginPath();
+    g.arc(0, 0, s * 0.46, 0, Math.PI * 2);
+    g.stroke();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      g.beginPath();
+      g.moveTo(dx * s * 0.32, dy * s * 0.32);
+      g.lineTo(dx * s * 0.72, dy * s * 0.72);
+      g.stroke();
+    }
+    g.beginPath();
+    g.arc(0, 0, s * 0.14, 0, Math.PI * 2);
+    g.fill();
+  } else if (name === 'flame') {
+    g.beginPath();
+    g.moveTo(0, -s * 0.68);
+    g.bezierCurveTo(s * 0.52, -s * 0.2, s * 0.62, s * 0.48, 0, s * 0.68);
+    g.bezierCurveTo(-s * 0.62, s * 0.48, -s * 0.52, -s * 0.2, 0, -s * 0.68);
+    g.fill();
+  } else if (name === 'sun') {
+    g.beginPath();
+    g.arc(0, 0, s * 0.32, 0, Math.PI * 2);
+    g.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * s * 0.48, Math.sin(a) * s * 0.48);
+      g.lineTo(Math.cos(a) * s * 0.66, Math.sin(a) * s * 0.66);
+      g.stroke();
+    }
+  } else if (name === 'dusk') {
+    g.beginPath();
+    g.arc(0, s * 0.12, s * 0.38, Math.PI, 0);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(-s * 0.64, s * 0.26);
+    g.lineTo(s * 0.64, s * 0.26);
+    g.stroke();
+  } else if (name === 'moon') {
+    g.beginPath();
+    g.arc(0, 0, s * 0.48, -Math.PI * 0.35, Math.PI * 0.95);
+    g.bezierCurveTo(-s * 0.08, s * 0.12, -s * 0.08, -s * 0.18, s * 0.22, -s * 0.42);
+    g.stroke();
+  } else if (name === 'reset') {
+    g.beginPath();
+    g.arc(0, 0, s * 0.48, -Math.PI * 0.8, Math.PI * 0.65);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(-s * 0.56, -s * 0.16);
+    g.lineTo(-s * 0.36, -s * 0.48);
+    g.lineTo(-s * 0.12, -s * 0.18);
+    g.stroke();
+  }
+  g.restore();
+}
+
 export function createTabletop({
   renderer,
   camera,
@@ -421,6 +547,7 @@ export function createTabletop({
   lightModes,
   cx,
   cz,
+  dome,
   span = 16000,
   D,
   ND,
@@ -434,6 +561,8 @@ export function createTabletop({
   watchEruption,
   getExag,
   setExag,
+  getSpeed,
+  setSpeed,
   getLight,
   setLight,
   getGhost,
@@ -457,6 +586,13 @@ export function createTabletop({
   sun.castShadow = false;
   scene.add(sun, sun.target);
   const sunDirWorld = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(60), THREE.MathUtils.degToRad(220));
+
+  // Warm pulsing volcanic vent glow inside the crater (cheap shadowless PointLight)
+  const domeX = dome?.x ?? (cx + 90);
+  const domeZ = dome?.z ?? (cz - 60);
+  const eruptionLight = new THREE.PointLight(0xff621f, 0, 1.8, 1.6);
+  eruptionLight.position.set(domeX, 1450, domeZ);
+  model.add(eruptionLight);
 
   const tableNormalMat = { value: new THREE.Matrix3() };
   const hasGPUShaders = !!(uniforms && commonGLSL && fragColorGLSL && fragEmisGLSL);
@@ -763,49 +899,57 @@ export function createTabletop({
   ringHitMesh.position.y = 0.004;
   holder.add(ringHitMesh);
 
-  // Direct 3D Corner Scale Handles (grab & drag any corner directly in 3D space to resize)
+  // Direct 3D Spatial Corner Brackets (grab & drag any corner directly in 3D space to resize)
   const cornerHandles = [];
   const cornerHitMeshes = [];
   const cornerCoords = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
-  const cornerOffset = 0.352;
+  const cornerOffset = 0.354;
   for (const [sx, sz] of cornerCoords) {
     const group = new THREE.Group();
-    group.position.set(sx * cornerOffset, 0.016, sz * cornerOffset);
+    group.position.set(sx * cornerOffset, 0.014, sz * cornerOffset);
+
+    const armMat = new THREE.MeshBasicMaterial({ color: 0x9ed8ff, transparent: true, opacity: 0.72 });
+    const armLen = 0.044;
+    const armX = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.0045, 0.005), armMat);
+    armX.position.set(-sx * (armLen * 0.5 - 0.0025), -0.004, 0);
+    const armZ = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.0045, armLen), armMat);
+    armZ.position.set(0, -0.004, -sz * (armLen * 0.5 - 0.0025));
+    group.add(armX, armZ);
 
     const orb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.013, 14, 12),
+      new THREE.SphereGeometry(0.011, 16, 12),
       new THREE.MeshBasicMaterial({ color: 0xbfd9e6 }),
     );
     group.add(orb);
 
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.018, 0.023, 24).rotateX(-Math.PI / 2),
+      new THREE.RingGeometry(0.016, 0.022, 24).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0xbfd9e6, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
     );
     ring.position.y = -0.006;
     group.add(ring);
 
     const hitSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.044, 10, 10),
+      new THREE.SphereGeometry(0.048, 10, 10),
       new THREE.MeshBasicMaterial({ visible: false }),
     );
     group.add(hitSphere);
     hitSphere.userData.cornerIndex = cornerHandles.length;
 
     holder.add(group);
-    cornerHandles.push({ group, orb, ring, hitSphere, sx, sz });
+    cornerHandles.push({ group, orb, ring, armX, armZ, armMat, hitSphere, sx, sz });
     cornerHitMeshes.push(hitSphere);
   }
 
-  // Live floating resize badge shown above corner while resizing
+  // Live floating resize / rotation badge shown while hovering or dragging 3D handles
   const badgeCanvas = document.createElement('canvas');
-  badgeCanvas.width = 256;
+  badgeCanvas.width = 280;
   badgeCanvas.height = 76;
   const badgeCtx = badgeCanvas.getContext('2d');
   const badgeTex = new THREE.CanvasTexture(badgeCanvas);
   badgeTex.colorSpace = THREE.SRGBColorSpace;
   const resizeBadge = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.145, 0.043),
+    new THREE.PlaneGeometry(0.155, 0.042),
     new THREE.MeshBasicMaterial({ map: badgeTex, transparent: true, depthTest: false, side: THREE.DoubleSide }),
   );
   resizeBadge.visible = false;
@@ -816,18 +960,18 @@ export function createTabletop({
   function updateBadge(mesh, text, worldPos) {
     if (text !== lastBadgeText) {
       lastBadgeText = text;
-      badgeCtx.clearRect(0, 0, 256, 76);
-      rrect(badgeCtx, 4, 4, 248, 68, 34);
-      badgeCtx.fillStyle = 'rgba(14, 18, 22, 0.92)';
+      badgeCtx.clearRect(0, 0, 280, 76);
+      rrect(badgeCtx, 4, 4, 272, 68, 34);
+      badgeCtx.fillStyle = 'rgba(13, 17, 22, 0.92)';
       badgeCtx.fill();
-      badgeCtx.strokeStyle = '#ff7a35';
+      badgeCtx.strokeStyle = '#ff8a47';
       badgeCtx.lineWidth = 3;
       badgeCtx.stroke();
-      badgeCtx.fillStyle = '#f3f1ea';
-      badgeCtx.font = '600 26px "Geist Mono", monospace';
+      badgeCtx.fillStyle = '#f5f3ed';
+      badgeCtx.font = '600 25px "Geist Mono", monospace';
       badgeCtx.textAlign = 'center';
       badgeCtx.textBaseline = 'middle';
-      badgeCtx.fillText(text, 128, 39);
+      badgeCtx.fillText(text, 140, 39);
       badgeTex.needsUpdate = true;
     }
     mesh.position.copy(worldPos);
@@ -841,7 +985,7 @@ export function createTabletop({
 
   const reliefHeight = 0.18;
   const reliefRail = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.0022, 0.0022, reliefHeight, 8),
+    new THREE.CylinderGeometry(0.0024, 0.0024, reliefHeight, 10),
     new THREE.MeshBasicMaterial({ color: 0xbfd9e6, transparent: true, opacity: 0.45 }),
   );
   reliefRail.position.y = reliefHeight * 0.5;
@@ -850,20 +994,20 @@ export function createTabletop({
   for (const frac of [0, 1 / 6, 1 / 3, 2 / 3, 1]) {
     const pip = new THREE.Mesh(
       new THREE.CylinderGeometry(0.0055, 0.0055, 0.002, 12),
-      new THREE.MeshBasicMaterial({ color: 0xf3f1ea, transparent: true, opacity: 0.5 }),
+      new THREE.MeshBasicMaterial({ color: 0xf3f1ea, transparent: true, opacity: 0.52 }),
     );
     pip.position.y = frac * reliefHeight;
     reliefRoot.add(pip);
   }
 
   const reliefOrb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.015, 16, 14),
+    new THREE.SphereGeometry(0.0145, 16, 14),
     new THREE.MeshBasicMaterial({ color: 0xff7a35 }),
   );
   reliefRoot.add(reliefOrb);
 
   const reliefHitMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.036, 0.036, reliefHeight + 0.05, 10),
+    new THREE.CylinderGeometry(0.038, 0.038, reliefHeight + 0.05, 10),
     new THREE.MeshBasicMaterial({ visible: false }),
   );
   reliefHitMesh.position.y = reliefHeight * 0.5;
@@ -889,9 +1033,9 @@ export function createTabletop({
     lastReliefLbl = txt;
     reliefLblCtx.clearRect(0, 0, 220, 68);
     rrect(reliefLblCtx, 4, 4, 212, 60, 30);
-    reliefLblCtx.fillStyle = 'rgba(14, 18, 22, 0.86)';
+    reliefLblCtx.fillStyle = 'rgba(14, 18, 22, 0.88)';
     reliefLblCtx.fill();
-    reliefLblCtx.strokeStyle = 'rgba(243, 241, 234, 0.24)';
+    reliefLblCtx.strokeStyle = 'rgba(243, 241, 234, 0.28)';
     reliefLblCtx.lineWidth = 2.5;
     reliefLblCtx.stroke();
     reliefLblCtx.fillStyle = '#f3f1ea';
@@ -916,8 +1060,8 @@ export function createTabletop({
       uSunCol: { value: new THREE.Color(1.0, 0.93, 0.82).multiplyScalar(1.45) },
       uSky: { value: new THREE.Color(0.36, 0.40, 0.46) },
       uBounce: { value: new THREE.Color(0.14, 0.12, 0.10) },
-      uPuffScale: { value: 1.55 },
-      uSmokeBoost: { value: 1.85 },
+      uPuffScale: { value: 1.24 },
+      uSmokeBoost: { value: 1.55 },
       uWorldScale: { value: baseScale },
     };
 
@@ -970,17 +1114,18 @@ export function createTabletop({
   reticle.add(rInner, rOuter);
   scene.add(reticle);
 
-  // Fluid Floating Spatial Capsule Dock + Adaptive Floating Glass Drawers
+  // Fluid Spatial Glass Capsule Dock + Adaptive Depth-Layered Drawers + 90 Hz Timeline Playhead
   const uiRoot = new THREE.Group();
   uiRoot.visible = false;
   scene.add(uiRoot);
 
   const dockPivot = new THREE.Group();
-  dockPivot.rotation.x = -0.52;
+  dockPivot.rotation.x = -0.50;
   uiRoot.add(dockPivot);
 
   const dockPhysW = 0.48;
   const dockPhysH = dockPhysW * (DOCK_H / DOCK_W);
+  const dockRadius = dockPhysH * 0.46;
   const dockCanvas = document.createElement('canvas');
   dockCanvas.width = DOCK_W;
   dockCanvas.height = DOCK_H;
@@ -989,14 +1134,58 @@ export function createTabletop({
   dockTex.colorSpace = THREE.SRGBColorSpace;
   dockTex.anisotropy = 4;
 
+  const dockGlassBack = new THREE.Mesh(
+    createRoundedPanelGeometry(dockPhysW + 0.008, dockPhysH + 0.008, dockRadius + 0.004),
+    new THREE.MeshBasicMaterial({ color: 0x0a0e14, transparent: true, opacity: 0.56, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  dockGlassBack.position.z = -0.0045;
+  dockPivot.add(dockGlassBack);
+
+  const dockRimLine = new THREE.LineLoop(
+    createRoundedBorderGeometry(dockPhysW + 0.003, dockPhysH + 0.003, dockRadius + 0.0015),
+    new THREE.LineBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.36 }),
+  );
+  dockRimLine.position.z = 0.0012;
+  dockPivot.add(dockRimLine);
+
   const dockMesh = new THREE.Mesh(
-    createRoundedPanelGeometry(dockPhysW, dockPhysH, dockPhysH * 0.46),
+    createRoundedPanelGeometry(dockPhysW, dockPhysH, dockRadius),
     new THREE.MeshBasicMaterial({ map: dockTex, transparent: true, side: THREE.DoubleSide }),
   );
   dockPivot.add(dockMesh);
 
+  // Separate 90 Hz 3D playhead orb on dockPivot -> zero CanvasTexture re-upload while scrubbing/playing!
+  const timelinePlayhead = new THREE.Group();
+  const playheadCore = new THREE.Mesh(
+    new THREE.SphereGeometry(0.0075, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff853d }),
+  );
+  playheadCore.scale.set(1, 1, 0.45);
+  const playheadHalo = new THREE.Mesh(
+    new THREE.RingGeometry(0.0078, 0.0108, 28),
+    new THREE.MeshBasicMaterial({ color: 0xf5f3ed, side: THREE.DoubleSide }),
+  );
+  timelinePlayhead.add(playheadCore, playheadHalo);
+  timelinePlayhead.position.z = 0.0035;
+  dockPivot.add(timelinePlayhead);
+
+  // visionOS-style floating grab bar beneath the capsule dock to pull/adjust height & distance
+  const dockGrabPill = new THREE.Mesh(
+    createRoundedPanelGeometry(0.135, 0.009, 0.0045),
+    new THREE.MeshBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.45, side: THREE.DoubleSide }),
+  );
+  dockGrabPill.position.set(0, -dockPhysH * 0.5 - 0.020, 0.002);
+  dockPivot.add(dockGrabPill);
+
+  const dockGrabHitMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.18, 0.042),
+    new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }),
+  );
+  dockGrabHitMesh.position.set(0, -dockPhysH * 0.5 - 0.020, 0.002);
+  dockPivot.add(dockGrabHitMesh);
+
   const drawerPivot = new THREE.Group();
-  drawerPivot.position.set(0, dockPhysH * 0.5 + 0.088, 0.004);
+  drawerPivot.position.set(0, dockPhysH * 0.5 + 0.090, 0.005);
   drawerPivot.visible = false;
   dockPivot.add(drawerPivot);
 
@@ -1010,16 +1199,36 @@ export function createTabletop({
   drawerTex.colorSpace = THREE.SRGBColorSpace;
   drawerTex.anisotropy = 4;
 
+  const drawerGlassBack = new THREE.Mesh(
+    createRoundedPanelGeometry(drawerPhysW + 0.008, drawerPhysH + 0.008, 0.032),
+    new THREE.MeshBasicMaterial({ color: 0x0a0e14, transparent: true, opacity: 0.56, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  drawerGlassBack.position.z = -0.0045;
+  drawerPivot.add(drawerGlassBack);
+
+  const drawerRimLine = new THREE.LineLoop(
+    createRoundedBorderGeometry(drawerPhysW + 0.003, drawerPhysH + 0.003, 0.0295),
+    new THREE.LineBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.34 }),
+  );
+  drawerRimLine.position.z = 0.0012;
+  drawerPivot.add(drawerRimLine);
+
   const drawerMesh = new THREE.Mesh(
     createRoundedPanelGeometry(drawerPhysW, drawerPhysH, 0.028),
     new THREE.MeshBasicMaterial({ map: drawerTex, transparent: true, side: THREE.DoubleSide }),
   );
   drawerPivot.add(drawerMesh);
 
-  const cursorDot = new THREE.Mesh(
-    new THREE.SphereGeometry(0.004, 14, 14),
-    new THREE.MeshBasicMaterial({ color: 0xff8a3d }),
+  const cursorDot = new THREE.Group();
+  const cursorCore = new THREE.Mesh(
+    new THREE.CircleGeometry(0.0036, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff8a3d, side: THREE.DoubleSide }),
   );
+  const cursorRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.0054, 0.0074, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, side: THREE.DoubleSide }),
+  );
+  cursorDot.add(cursorCore, cursorRing);
   cursorDot.visible = false;
   dockPivot.add(cursorDot);
 
@@ -1060,18 +1269,35 @@ export function createTabletop({
   let generation = 0;
   let uiYaw = 0;
   let dockLift = 0;
+  let dockUserYOffset = 0;
+  let dockUserDistOffset = 0;
   let openDrawer = null; // null | 'stages' | 'view'
   let drawerAnim = 0;
   let activeSlider = null; // { controller, surface: 'dock'|'drawer', id }
   let ringDrag = null;     // { controller, startAngle, startYaw }
   let cornerDrag = null;   // { controller, cornerIndex, startDist, startScale }
   let reliefDrag = null;   // { controller }
+  let dockDrag = null;     // { controller, startY, startDist, baseY, baseDist }
   let hoverDockId = null;
   let hoverDrawerId = null;
   let hoverCorner = -1;
   let hoverRelief = false;
   let hoverRing = false;
+  let hoverGrabBar = false;
+  let prevHoverSig = '';
+  let lastScrubPhase = '';
   const lastButtons = new Map();
+
+  function pulseHaptic(controller, intensity = 0.25, duration = 14) {
+    try {
+      if (!session || !controller) return;
+      const idx = controllers.indexOf(controller);
+      const src = session.inputSources?.[idx];
+      src?.gamepad?.hapticActuators?.[0]?.pulse?.(intensity, duration);
+    } catch {
+      // Haptics optional across XR devices
+    }
+  }
 
   const stageBands = bands?.length ? bands : STAGE_PILLS.map(s => ({
     phase: s.id, p0: s.anchor, p1: s.anchor, anchor: s.anchor, name: s.label, c: s.c, c2: s.c2,
@@ -1085,8 +1311,9 @@ export function createTabletop({
     return deg === 360 ? 0 : deg;
   };
 
-  function handleAction(id) {
+  function handleAction(id, controller = null) {
     const st = state();
+    pulseHaptic(controller, 0.42, 18);
     if (id === 'playPause') {
       togglePlay();
     } else if (id === 'prevStage') {
@@ -1100,10 +1327,21 @@ export function createTabletop({
     } else if (id === 'watchEruption') {
       watchEruption ? watchEruption() : (setTime(0.30), !st.playing && togglePlay());
       openDrawer = null;
+    } else if (id === 'speed05') {
+      setSpeed?.(0.5);
+    } else if (id === 'speed1') {
+      setSpeed?.(1);
+    } else if (id === 'speed2') {
+      setSpeed?.(2);
+    } else if (id === 'speed4') {
+      setSpeed?.(4);
     } else if (id === 'resetView') {
       holder.scale.setScalar(1);
       holder.rotation.set(0, 0, 0);
+      dockUserYOffset = 0;
+      dockUserDistOffset = 0;
       setExag?.(1);
+      setSpeed?.(1);
     } else if (id === 'placeAgain') {
       placed = false;
       holder.visible = false;
@@ -1113,10 +1351,13 @@ export function createTabletop({
       cursorDot.visible = false;
       openDrawer = null;
       drawerAnim = 0;
+      dockUserYOffset = 0;
+      dockUserDistOffset = 0;
       activeSlider = null;
       ringDrag = null;
       cornerDrag = null;
       reliefDrag = null;
+      dockDrag = null;
       anchor?.delete?.();
       anchor = null;
     } else if (id.startsWith('stage:')) {
@@ -1150,11 +1391,21 @@ export function createTabletop({
     }
   }
 
-  function applySlider(id, t) {
-    if (id === 'timeline') setTime(clamp(t, 0, 1));
-    else if (id === 'scaleSlider') holder.scale.setScalar(tToScale(t));
-    else if (id === 'rotSlider') holder.rotation.y = (0.5 - clamp(t, 0, 1)) * Math.PI * 2;
-    else if (id === 'exagSlider') setExag?.(1 + clamp(t, 0, 1) * 3);
+  function applySlider(id, t, controller = null) {
+    if (id === 'timeline') {
+      setTime(clamp(t, 0, 1));
+      const ph = state().phase;
+      if (ph !== lastScrubPhase) {
+        lastScrubPhase = ph;
+        pulseHaptic(controller, 0.22, 12);
+      }
+    } else if (id === 'scaleSlider') {
+      holder.scale.setScalar(tToScale(t));
+    } else if (id === 'rotSlider') {
+      holder.rotation.y = (0.5 - clamp(t, 0, 1)) * Math.PI * 2;
+    } else if (id === 'exagSlider') {
+      setExag?.(1 + clamp(t, 0, 1) * 3);
+    }
   }
 
   function controllerRay(c) {
@@ -1168,7 +1419,7 @@ export function createTabletop({
     scene.add(c);
     controllers.push(c);
 
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x9fffc8, transparent: true, opacity: 0.65 });
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xa6ffe0, transparent: true, opacity: 0.52 });
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -2.0)]),
       lineMat,
@@ -1177,9 +1428,10 @@ export function createTabletop({
     c.add(line);
 
     const tip = new THREE.Mesh(
-      new THREE.SphereGeometry(0.0045, 10, 10),
-      new THREE.MeshBasicMaterial({ color: 0x9fffc8 }),
+      new THREE.SphereGeometry(0.004, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xa6ffe0 }),
     );
+    c.userData.tipMat = tip.material;
     c.add(tip);
 
     c.addEventListener('selectstart', () => {
@@ -1198,6 +1450,7 @@ export function createTabletop({
         reticle.visible = false;
         lastDockKey = '';
         lastDrawerKey = '';
+        pulseHaptic(c, 0.45, 22);
         return;
       }
 
@@ -1212,9 +1465,10 @@ export function createTabletop({
           if (hit) {
             if (hit.kind === 'slider') {
               activeSlider = { controller: c, surface: 'drawer', id: hit.id };
-              applySlider(hit.id, hit.t);
+              applySlider(hit.id, hit.t, c);
+              pulseHaptic(c, 0.25, 14);
             } else {
-              handleAction(hit.id);
+              handleAction(hit.id, c);
             }
             lastDrawerKey = '';
             lastDockKey = '';
@@ -1230,9 +1484,11 @@ export function createTabletop({
         if (hit) {
           if (hit.kind === 'slider') {
             activeSlider = { controller: c, surface: 'dock', id: hit.id };
-            applySlider(hit.id, hit.t);
+            lastScrubPhase = state().phase;
+            applySlider(hit.id, hit.t, c);
+            pulseHaptic(c, 0.25, 14);
           } else {
-            handleAction(hit.id);
+            handleAction(hit.id, c);
           }
           lastDockKey = '';
           lastDrawerKey = '';
@@ -1240,14 +1496,29 @@ export function createTabletop({
         }
       }
 
-      // 3. Direct 3D vertical relief handle
-      const relHit = raycaster.intersectObject(reliefHitMesh)[0];
-      if (relHit) {
-        reliefDrag = { controller: c };
+      // 3. Dock floating spatial grab pill
+      const grabHit = raycaster.intersectObject(dockGrabHitMesh)[0];
+      if (grabHit) {
+        dockDrag = {
+          controller: c,
+          startRayDist: grabHit.distance,
+          startPoint: grabHit.point.clone(),
+          startYOff: dockUserYOffset,
+          startDistOff: dockUserDistOffset,
+        };
+        pulseHaptic(c, 0.3, 16);
         return;
       }
 
-      // 4. Direct 3D corner resize handles
+      // 4. Direct 3D vertical relief handle
+      const relHit = raycaster.intersectObject(reliefHitMesh)[0];
+      if (relHit) {
+        reliefDrag = { controller: c };
+        pulseHaptic(c, 0.3, 16);
+        return;
+      }
+
+      // 5. Direct 3D spatial corner resize brackets
       const cHit = raycaster.intersectObjects(cornerHitMeshes, false)[0];
       if (cHit) {
         _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
@@ -1260,27 +1531,30 @@ export function createTabletop({
           startDist,
           startScale: holder.scale.x,
         };
+        pulseHaptic(c, 0.32, 16);
         return;
       }
 
-      // 5. Direct 3D turntable ring
+      // 6. Direct 3D turntable ring
       const ringHit = raycaster.intersectObject(ringHitMesh)[0];
       if (ringHit) {
         const dx = ringHit.point.x - holder.position.x;
         const dz = ringHit.point.z - holder.position.z;
         ringDrag = { controller: c, startAngle: Math.atan2(dx, dz), startYaw: holder.rotation.y };
+        pulseHaptic(c, 0.3, 16);
         return;
       }
 
-      // 6. Tap outside closes open drawer softly
+      // 7. Tap outside closes open drawer softly
       if (openDrawer) openDrawer = null;
     });
 
     const releaseSelect = () => {
       if (activeSlider?.controller === c) activeSlider = null;
-      if (ringDrag?.controller === c) ringDrag = null;
+      if (ringDrag?.controller === c) { ringDrag = null; resizeBadge.visible = false; }
       if (cornerDrag?.controller === c) { cornerDrag = null; resizeBadge.visible = false; }
       if (reliefDrag?.controller === c) reliefDrag = null;
+      if (dockDrag?.controller === c) dockDrag = null;
     };
     c.addEventListener('selectend', releaseSelect);
     c.addEventListener('squeezestart', () => {
@@ -1290,6 +1564,8 @@ export function createTabletop({
       ringDrag = null;
       cornerDrag = null;
       reliefDrag = null;
+      dockDrag = null;
+      pulseHaptic(c, 0.25, 14);
     });
     c.addEventListener('squeezeend', () => { c.userData.grab = false; grab = null; two = null; });
     c.addEventListener('disconnected', () => { c.userData.grab = false; grab = null; two = null; releaseSelect(); });
@@ -1317,42 +1593,95 @@ export function createTabletop({
     }
   }
 
-  function drawPillButton(g, r, label, { active = false, accent = false, hover = false, font = '500 26px "Geist", system-ui, sans-serif', radius = 24 } = {}) {
+  function drawGlassSurface(g, w, h, radius) {
+    rrect(g, 8, 8, w - 16, h - 16, radius);
+    const bg = g.createLinearGradient(0, 0, w * 0.2, h);
+    bg.addColorStop(0, 'rgba(28, 35, 44, 0.86)');
+    bg.addColorStop(0.55, 'rgba(18, 22, 28, 0.88)');
+    bg.addColorStop(1, 'rgba(11, 14, 18, 0.92)');
+    g.fillStyle = bg;
+    g.fill();
+
+    // Subtle spatial top specular catchlight
+    const sheen = g.createLinearGradient(0, 8, 0, h * 0.45);
+    sheen.addColorStop(0, 'rgba(220, 236, 255, 0.14)');
+    sheen.addColorStop(1, 'rgba(220, 236, 255, 0)');
+    g.fillStyle = sheen;
+    g.fill();
+
+    g.strokeStyle = 'rgba(220, 236, 255, 0.28)';
+    g.lineWidth = 2.5;
+    g.stroke();
+  }
+
+  function drawPillButton(g, r, label, {
+    active = false,
+    accent = false,
+    hover = false,
+    icon = null,
+    iconSize = 18,
+    font = '500 25px "Geist", system-ui, sans-serif',
+    radius = 24,
+  } = {}) {
     const w = r.x1 - r.x0;
     const h = r.y1 - r.y0;
+    const cxB = (r.x0 + r.x1) * 0.5;
+    const cyB = (r.y0 + r.y1) * 0.5;
     rrect(g, r.x0, r.y0, w, h, radius);
     if (accent) {
-      g.fillStyle = hover ? '#ff8f52' : '#ff7a35';
+      const ag = g.createLinearGradient(r.x0, r.y0, r.x0, r.y1);
+      ag.addColorStop(0, hover ? '#ffa56b' : '#ff8e47');
+      ag.addColorStop(1, hover ? '#ff7c36' : '#f26922');
+      g.fillStyle = ag;
     } else if (active) {
-      g.fillStyle = hover ? 'rgba(255, 122, 53, 0.30)' : 'rgba(255, 122, 53, 0.22)';
+      g.fillStyle = hover ? 'rgba(255, 130, 56, 0.34)' : 'rgba(255, 122, 53, 0.22)';
     } else {
-      g.fillStyle = hover ? 'rgba(243, 241, 234, 0.16)' : 'rgba(243, 241, 234, 0.08)';
+      g.fillStyle = hover ? 'rgba(225, 238, 255, 0.19)' : 'rgba(225, 238, 255, 0.08)';
     }
     g.fill();
-    g.strokeStyle = accent ? 'rgba(255, 195, 155, 0.7)' : active ? '#ff7a35' : hover ? 'rgba(243, 241, 234, 0.42)' : 'rgba(243, 241, 234, 0.14)';
-    g.lineWidth = active || hover ? 2.5 : 1.5;
+    g.strokeStyle = accent
+      ? 'rgba(255, 224, 196, 0.85)'
+      : active
+        ? '#ff8540'
+        : hover
+          ? 'rgba(235, 244, 255, 0.55)'
+          : 'rgba(225, 238, 255, 0.16)';
+    g.lineWidth = active || hover || accent ? 2.5 : 1.5;
     g.stroke();
 
-    g.fillStyle = accent ? '#1d0d04' : active ? '#ffffff' : '#ece9e1';
+    const fg = accent ? '#1c0c04' : active ? '#ffffff' : '#eef1f5';
+    g.fillStyle = fg;
     g.font = font;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText(label, (r.x0 + r.x1) * 0.5, (r.y0 + r.y1) * 0.5 + 1);
+    if (icon && label) {
+      const gap = 10;
+      const tw = g.measureText(label).width;
+      const total = iconSize * 1.4 + gap + tw;
+      const startX = cxB - total * 0.5;
+      drawIcon(g, icon, startX + iconSize * 0.7, cyB, iconSize, fg);
+      g.textAlign = 'left';
+      g.fillText(label, startX + iconSize * 1.4 + gap, cyB + 1);
+    } else if (icon) {
+      drawIcon(g, icon, cxB, cyB, iconSize, fg);
+    } else if (label) {
+      g.fillText(label, cxB, cyB + 1);
+    }
   }
 
   function drawSlider(g, r, t, hover, fillCol = '#ff7a35') {
     const cy = (r.y0 + r.y1) * 0.5;
     const len = r.tx1 - r.tx0;
     rrect(g, r.tx0, cy - 8, len, 16, 8);
-    g.fillStyle = 'rgba(243, 241, 234, 0.13)';
+    g.fillStyle = 'rgba(225, 238, 255, 0.13)';
     g.fill();
-    rrect(g, r.tx0, cy - 8, Math.max(12, len * t), 16, 8);
+    rrect(g, r.tx0, cy - 8, Math.max(14, len * t), 16, 8);
     g.fillStyle = fillCol;
     g.fill();
     const kx = r.tx0 + len * t;
     g.beginPath();
     g.arc(kx, cy, hover ? 20 : 17, 0, Math.PI * 2);
-    g.fillStyle = '#f3f1ea';
+    g.fillStyle = '#f5f4f0';
     g.fill();
     g.strokeStyle = fillCol;
     g.lineWidth = 5;
@@ -1362,52 +1691,55 @@ export function createTabletop({
   function drawDock(st) {
     const g = dockCtx;
     g.clearRect(0, 0, DOCK_W, DOCK_H);
-
-    // Translucent frosted-glass capsule
-    rrect(g, 8, 8, DOCK_W - 16, DOCK_H - 16, (DOCK_H - 16) * 0.48);
-    const bg = g.createLinearGradient(0, 0, 0, DOCK_H);
-    bg.addColorStop(0, 'rgba(22, 26, 30, 0.88)');
-    bg.addColorStop(1, 'rgba(13, 16, 19, 0.92)');
-    g.fillStyle = bg;
-    g.fill();
-    g.strokeStyle = 'rgba(243, 241, 234, 0.22)';
-    g.lineWidth = 3;
-    g.stroke();
+    drawGlassSurface(g, DOCK_W, DOCK_H, (DOCK_H - 16) * 0.48);
 
     const byId = Object.fromEntries(DOCK_LAYOUT.map(x => [x.id, x]));
 
     // Play / Pause circular orb
-    drawPillButton(g, byId.playPause, st.playing ? '❚❚' : '▶', {
+    drawPillButton(g, byId.playPause, '', {
       accent: true,
       hover: hoverDockId === 'playPause',
-      font: '700 38px system-ui, sans-serif',
+      icon: st.playing ? 'pause' : 'play',
+      iconSize: 32,
       radius: 60,
     });
 
-    // Stage prev/next + title/time readout
-    drawPillButton(g, byId.prevStage, '‹', {
+    // Stage prev/next + title/live telemetry readout
+    drawPillButton(g, byId.prevStage, '', {
       hover: hoverDockId === 'prevStage',
-      font: '600 36px system-ui, sans-serif',
+      icon: 'prev',
+      iconSize: 22,
       radius: 22,
     });
-    drawPillButton(g, byId.nextStage, '›', {
+    drawPillButton(g, byId.nextStage, '', {
       hover: hoverDockId === 'nextStage',
-      font: '600 36px system-ui, sans-serif',
+      icon: 'next',
+      iconSize: 22,
       radius: 22,
     });
 
-    g.fillStyle = '#f3f1ea';
+    // Live status pill dot + title
+    const titleX = 254;
+    if (st.erupting) {
+      g.beginPath();
+      g.arc(titleX + 7, 65, 7, 0, Math.PI * 2);
+      g.fillStyle = st.playing ? '#ff7a35' : '#ffb86c';
+      g.fill();
+    }
+    g.fillStyle = '#f5f4f0';
     g.font = '500 30px "Newsreader", Georgia, serif';
     g.textAlign = 'left';
     g.textBaseline = 'middle';
-    g.fillText(st.title || 'Börzsöny', 252, 66);
+    g.fillText(st.title || 'Börzsöny', st.erupting ? titleX + 24 : titleX, 66);
 
-    const timeStr = [st.timeText, st.clockText].filter(Boolean).join(' · ') || `${Math.round(st.p * 100)}%`;
-    g.fillStyle = '#b6b9b2';
+    const spd = getSpeed ? getSpeed() : (st.speed || 1);
+    const spdTag = Math.abs(spd - 1) > 0.05 ? ` · ${spd}×` : '';
+    const timeStr = ([st.timeText, st.clockText].filter(Boolean).join(' · ') || `${Math.round(st.p * 100)}%`) + spdTag;
+    g.fillStyle = '#b4c2d0';
     g.font = '400 20px "Geist Mono", ui-monospace, monospace';
-    g.fillText(timeStr, 252, 102);
+    g.fillText(timeStr, titleX, 102);
 
-    // Stratigraphic timeline scrubber
+    // Stratigraphic timeline track (3D playhead renders smoothly at 90 Hz above it)
     const tl = byId.timeline;
     const cy = (tl.y0 + tl.y1) * 0.5;
     const len = tl.tx1 - tl.tx0;
@@ -1423,38 +1755,41 @@ export function createTabletop({
       g.fillStyle = grad;
       g.fillRect(bx0, cy - 15, bw, 30);
     }
+    // Glossy glass highlight across timeline bar
+    const tlGloss = g.createLinearGradient(0, cy - 15, 0, cy + 15);
+    tlGloss.addColorStop(0, 'rgba(255,255,255,0.22)');
+    tlGloss.addColorStop(0.45, 'rgba(255,255,255,0.03)');
+    tlGloss.addColorStop(1, 'rgba(0,0,0,0.22)');
+    g.fillStyle = tlGloss;
+    g.fillRect(tl.tx0, cy - 15, len, 30);
     g.restore();
 
     rrect(g, tl.tx0, cy - 15, len, 30, 15);
-    g.strokeStyle = hoverDockId === 'timeline' || activeSlider?.id === 'timeline' ? 'rgba(243,241,234,0.65)' : 'rgba(243,241,234,0.25)';
+    g.strokeStyle = hoverDockId === 'timeline' || activeSlider?.id === 'timeline' ? 'rgba(235,245,255,0.75)' : 'rgba(235,245,255,0.28)';
     g.lineWidth = 2;
     g.stroke();
 
-    const px = tl.tx0 + len * clamp(st.p, 0, 1);
-    g.beginPath();
-    g.arc(px, cy, hoverDockId === 'timeline' ? 22 : 19, 0, Math.PI * 2);
-    g.fillStyle = '#ff7a35';
-    g.fill();
-    g.strokeStyle = '#f3f1ea';
-    g.lineWidth = 4;
-    g.stroke();
-
-    // Drawer toggles & Move
+    // Drawer toggles & Place button with vector icons
     drawPillButton(g, byId.drawerStages, 'Stages', {
       active: openDrawer === 'stages',
       hover: hoverDockId === 'drawerStages',
-      font: '500 28px "Geist", system-ui, sans-serif',
+      icon: 'layers',
+      iconSize: 18,
+      font: '500 25px "Geist", system-ui, sans-serif',
       radius: 36,
     });
     drawPillButton(g, byId.drawerView, 'View', {
       active: openDrawer === 'view',
       hover: hoverDockId === 'drawerView',
-      font: '500 28px "Geist", system-ui, sans-serif',
+      icon: 'sliders',
+      iconSize: 18,
+      font: '500 25px "Geist", system-ui, sans-serif',
       radius: 36,
     });
-    drawPillButton(g, byId.placeAgain, '⌖', {
+    drawPillButton(g, byId.placeAgain, '', {
       hover: hoverDockId === 'placeAgain',
-      font: '600 34px system-ui, sans-serif',
+      icon: 'target',
+      iconSize: 22,
       radius: 36,
     });
 
@@ -1465,30 +1800,33 @@ export function createTabletop({
     if (!openDrawer) return;
     const g = drawerCtx;
     g.clearRect(0, 0, DRAWER_W, DRAWER_H);
-
-    rrect(g, 8, 8, DRAWER_W - 16, DRAWER_H - 16, 48);
-    const bg = g.createLinearGradient(0, 0, 0, DRAWER_H);
-    bg.addColorStop(0, 'rgba(20, 24, 28, 0.90)');
-    bg.addColorStop(1, 'rgba(12, 15, 18, 0.94)');
-    g.fillStyle = bg;
-    g.fill();
-    g.strokeStyle = 'rgba(243, 241, 234, 0.20)';
-    g.lineWidth = 3;
-    g.stroke();
+    drawGlassSurface(g, DRAWER_W, DRAWER_H, 46);
 
     if (openDrawer === 'stages') {
       const byId = Object.fromEntries(DRAWER_STAGES_LAYOUT.map(x => [x.id, x]));
-      g.fillStyle = '#868b85';
-      g.font = '600 20px "Geist Mono", monospace';
+      g.fillStyle = '#97a5b4';
+      g.font = '600 19px "Geist Mono", monospace';
       g.textAlign = 'left';
       g.textBaseline = 'middle';
-      g.fillText('GEOLOGICAL STAGES · OLDEST TO TODAY', 40, 62);
+      g.fillText('GEOLOGICAL STAGES · SPEED', 40, 62);
+
+      const curSpeed = getSpeed ? getSpeed() : (st.speed || 1);
+      for (const [id, val, lbl] of [['speed05', 0.5, '0.5×'], ['speed1', 1, '1×'], ['speed2', 2, '2×'], ['speed4', 4, '4×']]) {
+        drawPillButton(g, byId[id], lbl, {
+          active: Math.abs(curSpeed - val) < 0.08,
+          hover: hoverDrawerId === id,
+          font: '600 21px "Geist Mono", monospace',
+          radius: 22,
+        });
+      }
 
       drawPillButton(g, byId.watchEruption, 'Watch Eruption', {
         accent: st.erupting && st.playing,
         active: st.erupting,
         hover: hoverDrawerId === 'watchEruption',
-        font: '600 25px "Geist", system-ui, sans-serif',
+        icon: 'flame',
+        iconSize: 18,
+        font: '600 24px "Geist", system-ui, sans-serif',
         radius: 36,
       });
 
@@ -1500,26 +1838,25 @@ export function createTabletop({
         const w = r.x1 - r.x0;
         const h = r.y1 - r.y0;
         rrect(g, r.x0, r.y0, w, h, 26);
-        g.fillStyle = act ? 'rgba(255, 122, 53, 0.22)' : hov ? 'rgba(243, 241, 234, 0.14)' : 'rgba(243, 241, 234, 0.06)';
+        g.fillStyle = act ? 'rgba(255, 122, 53, 0.24)' : hov ? 'rgba(225, 238, 255, 0.16)' : 'rgba(225, 238, 255, 0.06)';
         g.fill();
-        g.strokeStyle = act ? '#ff7a35' : hov ? 'rgba(243, 241, 234, 0.38)' : 'rgba(243, 241, 234, 0.14)';
+        g.strokeStyle = act ? '#ff8540' : hov ? 'rgba(225, 238, 255, 0.45)' : 'rgba(225, 238, 255, 0.15)';
         g.lineWidth = act || hov ? 2.5 : 1.5;
         g.stroke();
 
-        // Color swatch dot
-        g.beginPath();
-        g.arc(r.x0 + 30, r.y0 + 38, 10, 0, Math.PI * 2);
+        // Colored accent bar + swatch dot
+        rrect(g, r.x0 + 18, r.y0 + 16, 48, 6, 3);
         g.fillStyle = pill.c;
         g.fill();
 
-        g.fillStyle = act ? '#ffffff' : '#ece9e1';
-        g.font = '600 28px "Geist", system-ui, sans-serif';
+        g.fillStyle = act ? '#ffffff' : '#eef1f5';
+        g.font = '600 27px "Geist", system-ui, sans-serif';
         g.textAlign = 'left';
-        g.fillText(pill.label, r.x0 + 52, r.y0 + 40);
+        g.fillText(pill.label, r.x0 + 22, r.y0 + 52);
 
-        g.fillStyle = act ? '#ffbfa0' : '#9ca19b';
-        g.font = '400 21px "Geist Mono", monospace';
-        g.fillText(pill.sub, r.x0 + 24, r.y0 + 88);
+        g.fillStyle = act ? '#ffc6a8' : '#9caab8';
+        g.font = '400 20px "Geist Mono", monospace';
+        g.fillText(pill.sub, r.x0 + 22, r.y0 + 94);
       }
     } else if (openDrawer === 'view') {
       const byId = Object.fromEntries(DRAWER_VIEW_LAYOUT.map(x => [x.id, x]));
@@ -1531,32 +1868,32 @@ export function createTabletop({
 
       g.textAlign = 'left';
       g.textBaseline = 'middle';
-      g.fillStyle = '#b6b9b2';
-      g.font = '600 22px "Geist Mono", monospace';
+      g.fillStyle = '#b7c3cf';
+      g.font = '600 21px "Geist Mono", monospace';
       g.fillText(`SIZE ${curScale.toFixed(2)}×`, 38, 74);
       g.fillText(`ROT ${String(yawDeg).padStart(3, '0')}°`, 38, 172);
       g.fillText(`RELIEF ${curExag.toFixed(1)}×`, 38, 270);
 
       drawSlider(g, byId.scaleSlider, scaleToT(curScale), hoverDrawerId === 'scaleSlider' || activeSlider?.id === 'scaleSlider');
-      drawPillButton(g, byId.scale05, '0.5×', { active: Math.abs(curScale - 0.5) < 0.06, hover: hoverDrawerId === 'scale05', font: '500 24px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.scale10, '1×', { active: Math.abs(curScale - 1.0) < 0.06, hover: hoverDrawerId === 'scale10', font: '500 24px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.scale20, '2×', { active: Math.abs(curScale - 2.0) < 0.08, hover: hoverDrawerId === 'scale20', font: '500 24px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.scale05, '0.5×', { active: Math.abs(curScale - 0.5) < 0.06, hover: hoverDrawerId === 'scale05', font: '500 23px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.scale10, '1×', { active: Math.abs(curScale - 1.0) < 0.06, hover: hoverDrawerId === 'scale10', font: '500 23px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.scale20, '2×', { active: Math.abs(curScale - 2.0) < 0.08, hover: hoverDrawerId === 'scale20', font: '500 23px "Geist Mono", monospace', radius: 24 });
 
       const rotNorm = (((0.5 - holder.rotation.y / (Math.PI * 2)) % 1) + 1) % 1;
-      drawSlider(g, byId.rotSlider, rotNorm, hoverDrawerId === 'rotSlider' || activeSlider?.id === 'rotSlider', '#bfd9e6');
-      drawPillButton(g, byId.rotNorth, 'N · 0°', { active: yawDeg < 4 || yawDeg > 356, hover: hoverDrawerId === 'rotNorth', font: '600 24px "Geist Mono", monospace', radius: 24 });
+      drawSlider(g, byId.rotSlider, rotNorm, hoverDrawerId === 'rotSlider' || activeSlider?.id === 'rotSlider', '#9ed8ff');
+      drawPillButton(g, byId.rotNorth, 'N · 0°', { active: yawDeg < 4 || yawDeg > 356, hover: hoverDrawerId === 'rotNorth', font: '600 23px "Geist Mono", monospace', radius: 24 });
 
       drawSlider(g, byId.exagSlider, clamp((curExag - 1) / 3, 0, 1), hoverDrawerId === 'exagSlider' || activeSlider?.id === 'exagSlider');
-      drawPillButton(g, byId.exag1, '1×', { active: Math.abs(curExag - 1.0) < 0.08, hover: hoverDrawerId === 'exag1', font: '500 23px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.exag15, '1.5×', { active: Math.abs(curExag - 1.5) < 0.08, hover: hoverDrawerId === 'exag15', font: '500 23px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.exag2, '2×', { active: Math.abs(curExag - 2.0) < 0.08, hover: hoverDrawerId === 'exag2', font: '500 23px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.exag3, '3×', { active: Math.abs(curExag - 3.0) < 0.08, hover: hoverDrawerId === 'exag3', font: '500 23px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.exag1, '1×', { active: Math.abs(curExag - 1.0) < 0.08, hover: hoverDrawerId === 'exag1', font: '500 22px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.exag15, '1.5×', { active: Math.abs(curExag - 1.5) < 0.08, hover: hoverDrawerId === 'exag15', font: '500 22px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.exag2, '2×', { active: Math.abs(curExag - 2.0) < 0.08, hover: hoverDrawerId === 'exag2', font: '500 22px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.exag3, '3×', { active: Math.abs(curExag - 3.0) < 0.08, hover: hoverDrawerId === 'exag3', font: '500 22px "Geist Mono", monospace', radius: 24 });
 
-      drawPillButton(g, byId.lightDay, 'Day', { active: curLight === 'day', hover: hoverDrawerId === 'lightDay', radius: 24 });
-      drawPillButton(g, byId.lightDusk, 'Dusk', { active: curLight === 'dusk', hover: hoverDrawerId === 'lightDusk', radius: 24 });
-      drawPillButton(g, byId.lightNight, 'Night', { active: curLight === 'night', hover: hoverDrawerId === 'lightNight', radius: 24 });
-      drawPillButton(g, byId.toggleGhost, curGhost ? "Today's Rim · ON" : "Today's Rim · OFF", { active: curGhost, hover: hoverDrawerId === 'toggleGhost', radius: 24 });
-      drawPillButton(g, byId.resetView, '⟲ Reset', { hover: hoverDrawerId === 'resetView', radius: 24 });
+      drawPillButton(g, byId.lightDay, 'Day', { active: curLight === 'day', hover: hoverDrawerId === 'lightDay', icon: 'sun', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
+      drawPillButton(g, byId.lightDusk, 'Dusk', { active: curLight === 'dusk', hover: hoverDrawerId === 'lightDusk', icon: 'dusk', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
+      drawPillButton(g, byId.lightNight, 'Night', { active: curLight === 'night', hover: hoverDrawerId === 'lightNight', icon: 'moon', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
+      drawPillButton(g, byId.toggleGhost, curGhost ? "Today's Rim · ON" : "Today's Rim · OFF", { active: curGhost, hover: hoverDrawerId === 'toggleGhost', font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
+      drawPillButton(g, byId.resetView, 'Reset', { hover: hoverDrawerId === 'resetView', icon: 'reset', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
     }
 
     drawerTex.needsUpdate = true;
@@ -1608,17 +1945,22 @@ export function createTabletop({
       placed = false;
       openDrawer = null;
       drawerAnim = 0;
+      dockUserYOffset = 0;
+      dockUserDistOffset = 0;
       grab = null;
       two = null;
       activeSlider = null;
       ringDrag = null;
       cornerDrag = null;
       reliefDrag = null;
+      dockDrag = null;
       hoverDockId = null;
       hoverDrawerId = null;
       hoverCorner = -1;
       hoverRelief = false;
       hoverRing = false;
+      hoverGrabBar = false;
+      prevHoverSig = '';
       lastButtons.clear();
       controllers.forEach(c => { c.userData.grab = false; });
       document.body.classList.remove('in-xr');
@@ -1731,7 +2073,7 @@ export function createTabletop({
       lastButtons.set(source, gp.buttons.map(b => b.pressed));
     }
 
-    // Active continuous drag handlers (sliders, turntable ring, corner resize, vertical relief)
+    // Active continuous drag handlers (sliders, dock grab bar, turntable ring, corner resize, vertical relief)
     if (placed && activeSlider) {
       controllerRay(activeSlider.controller);
       const targetMesh = activeSlider.surface === 'drawer' ? drawerMesh : dockMesh;
@@ -1750,8 +2092,17 @@ export function createTabletop({
         const u = clamp(_hitW.x / physW + 0.5, 0, 1);
         const px = u * canvW;
         const t = clamp((px - rect.tx0) / Math.max(1, rect.tx1 - rect.tx0), 0, 1);
-        applySlider(activeSlider.id, t);
+        applySlider(activeSlider.id, t, activeSlider.controller);
       }
+    }
+
+    if (placed && dockDrag) {
+      controllerRay(dockDrag.controller);
+      _hitW.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, dockDrag.startRayDist);
+      const dy = _hitW.y - dockDrag.startPoint.y;
+      const dr = (_hitW.x - dockDrag.startPoint.x) * Math.sin(uiYaw) + (_hitW.z - dockDrag.startPoint.z) * Math.cos(uiYaw);
+      dockUserYOffset = clamp(dockDrag.startYOff + dy, -0.10, 0.28);
+      dockUserDistOffset = clamp(dockDrag.startDistOff + dr, -0.14, 0.36);
     }
 
     if (placed && cornerDrag) {
@@ -1785,13 +2136,16 @@ export function createTabletop({
       }
     }
 
-    // Hover feedback & cursor dot across controllers / hand rays
+    // Hover feedback, micro-haptics & cursor halo across controllers / hand rays
     hoverDockId = null;
     hoverDrawerId = null;
     hoverCorner = -1;
     hoverRelief = false;
     hoverRing = false;
+    hoverGrabBar = false;
     cursorDot.visible = false;
+    let hoveredCtrl = null;
+    let hoveredKey = '';
 
     if (placed) {
       let foundCursor = false;
@@ -1809,7 +2163,9 @@ export function createTabletop({
               hoverDrawerId = hit ? hit.id : null;
               cursorDot.visible = true;
               dockPivot.worldToLocal(_v.copy(dHit.point));
-              cursorDot.position.set(_v.x, _v.y, _v.z + 0.003);
+              cursorDot.position.set(_v.x, _v.y, _v.z + 0.004);
+              cursorDot.scale.setScalar(hit ? 1.25 : 0.9);
+              if (hit) { hoveredCtrl = c; hoveredKey = `dr:${hit.id}`; }
             }
             highlighted = !!hit;
           }
@@ -1824,40 +2180,59 @@ export function createTabletop({
               hoverDockId = hit ? hit.id : null;
               cursorDot.visible = true;
               dockPivot.worldToLocal(_v.copy(dockHit.point));
-              cursorDot.position.set(_v.x, _v.y, _v.z + 0.003);
+              cursorDot.position.set(_v.x, _v.y, _v.z + 0.004);
+              cursorDot.scale.setScalar(hit ? 1.25 : 0.9);
+              if (hit) { hoveredCtrl = c; hoveredKey = `dk:${hit.id}`; }
             }
             highlighted = !!hit;
           }
         }
 
         if (!highlighted) {
-          if (raycaster.intersectObject(reliefHitMesh)[0]) {
+          if (raycaster.intersectObject(dockGrabHitMesh)[0]) {
+            hoverGrabBar = true;
+            highlighted = true;
+            hoveredCtrl = c;
+            hoveredKey = 'grab';
+          } else if (raycaster.intersectObject(reliefHitMesh)[0]) {
             hoverRelief = true;
             highlighted = true;
+            hoveredCtrl = c;
+            hoveredKey = 'relief';
           } else {
             const cHit = raycaster.intersectObjects(cornerHitMeshes, false)[0];
             if (cHit) {
               hoverCorner = cHit.object.userData.cornerIndex;
               highlighted = true;
+              hoveredCtrl = c;
+              hoveredKey = `c:${hoverCorner}`;
             } else if (raycaster.intersectObject(ringHitMesh)[0]) {
               hoverRing = true;
               highlighted = true;
+              hoveredCtrl = c;
+              hoveredKey = 'ring';
             }
           }
         }
 
-        c.userData.lineMat.color.setHex(highlighted ? 0xff9d66 : 0x9fffc8);
-        c.userData.lineMat.opacity = highlighted ? 0.95 : 0.65;
+        c.userData.lineMat.color.setHex(highlighted ? 0xff9d66 : 0xa6ffe0);
+        c.userData.lineMat.opacity = highlighted ? 0.95 : 0.52;
+        c.userData.tipMat?.color.setHex(highlighted ? 0xff9d66 : 0xa6ffe0);
       }
     }
 
-    // Fluid damped spring animations for dock, drawers, and 3D handles
+    if (hoveredKey !== prevHoverSig) {
+      prevHoverSig = hoveredKey;
+      if (hoveredKey && hoveredCtrl) pulseHaptic(hoveredCtrl, 0.14, 10);
+    }
+
+    // Fluid damped spring animations for dock, drawers, playhead, and 3D handles
     const xrCam = renderer.xr.getCamera(camera);
     xrCam.updateMatrixWorld(true);
     _camPosW.setFromMatrixPosition(xrCam.matrixWorld);
 
     if (placed) {
-      const interacting = !!(activeSlider || hoverDockId || hoverDrawerId || cursorDot.visible);
+      const interacting = !!(activeSlider || dockDrag || hoverDockId || hoverDrawerId || hoverGrabBar || cursorDot.visible);
       if (!interacting) {
         const eyeYaw = Math.atan2(_camPosW.x - holder.position.x, _camPosW.z - holder.position.z);
         const diff = Math.atan2(Math.sin(eyeYaw - uiYaw), Math.cos(eyeYaw - uiYaw));
@@ -1866,16 +2241,34 @@ export function createTabletop({
         }
       }
 
-      const targetLift = (hoverDockId || hoverDrawerId || activeSlider) ? 0.010 : 0;
+      const targetLift = (hoverDockId || hoverDrawerId || activeSlider || dockDrag) ? 0.010 : 0;
       dockLift += (targetLift - dockLift) * (1 - Math.exp(-dt * 12));
 
-      const offsetR = Math.max(0.36, 0.49 * holder.scale.x) + 0.13;
+      const offsetR = Math.max(0.36, 0.49 * holder.scale.x) + 0.13 + dockUserDistOffset;
       uiRoot.position.set(
         holder.position.x + Math.sin(uiYaw) * offsetR,
-        holder.position.y + 0.055 + dockLift,
+        holder.position.y + 0.055 + dockLift + dockUserYOffset,
         holder.position.z + Math.cos(uiYaw) * offsetR,
       );
       uiRoot.rotation.set(0, uiYaw, 0);
+
+      // Grab pill hover/drag styling
+      const grabHot = hoverGrabBar || !!dockDrag;
+      dockGrabPill.material.color.setHex(grabHot ? 0xff9654 : 0xdcecff);
+      dockGrabPill.material.opacity = grabHot ? 0.95 : 0.45;
+      dockGrabPill.scale.set(grabHot ? 1.15 : 1.0, grabHot ? 1.3 : 1.0, 1);
+
+      // Smooth 90 Hz 3D timeline playhead orb aligned to DOCK_LAYOUT.timeline
+      const tlRect = DOCK_LAYOUT[3];
+      const tlPx = tlRect.tx0 + (tlRect.tx1 - tlRect.tx0) * clamp(st.p, 0, 1);
+      const tlPy = (tlRect.y0 + tlRect.y1) * 0.5;
+      timelinePlayhead.position.set(
+        (tlPx / DOCK_W - 0.5) * dockPhysW,
+        (0.5 - tlPy / DOCK_H) * dockPhysH,
+        0.004,
+      );
+      const tlHot = hoverDockId === 'timeline' || activeSlider?.id === 'timeline';
+      timelinePlayhead.scale.setScalar(tlHot ? 1.24 : 1.0);
 
       // Spring drawer open/close
       const targetDrawer = openDrawer ? 1 : 0;
@@ -1901,23 +2294,29 @@ export function createTabletop({
       reliefOrb.material.color.setHex((hoverRelief || reliefDrag) ? 0xffa66b : 0xff7a35);
       updateReliefLabel(curExag);
 
-      // Corner resize handle styling & floating size badge
+      // Spatial corner bracket styling + floating handle badges (size or rotation)
       const invS = Math.max(0.45, 1 / holder.scale.x);
       for (let i = 0; i < cornerHandles.length; i++) {
         const ch = cornerHandles[i];
         const hot = hoverCorner === i || cornerDrag?.cornerIndex === i;
-        ch.group.scale.setScalar(invS * (hot ? 1.32 : 1.0));
-        ch.orb.material.color.setHex(hot ? 0xff8a3d : 0xbfd9e6);
-        ch.ring.material.color.setHex(hot ? 0xff8a3d : 0xbfd9e6);
-        ch.ring.material.opacity = hot ? 0.9 : 0.45;
+        ch.group.scale.setScalar(invS * (hot ? 1.28 : 1.0));
+        ch.orb.material.color.setHex(hot ? 0xff8a3d : 0x9ed8ff);
+        ch.ring.material.color.setHex(hot ? 0xff8a3d : 0x9ed8ff);
+        ch.ring.material.opacity = hot ? 0.92 : 0.45;
+        ch.armMat.color.setHex(hot ? 0xff8a3d : 0x9ed8ff);
+        ch.armMat.opacity = hot ? 1.0 : 0.68;
       }
 
       if (cornerDrag || hoverCorner >= 0) {
         const idx = cornerDrag ? cornerDrag.cornerIndex : hoverCorner;
         cornerHandles[idx].group.getWorldPosition(_v);
-        _v.y += 0.048;
+        _v.y += 0.052;
         const s = holder.scale.x;
         updateBadge(resizeBadge, `${s.toFixed(2)}× · ${Math.round(s * 65)} cm`, _v);
+        resizeBadge.lookAt(_camPosW);
+      } else if (ringDrag) {
+        _v.set(holder.position.x, holder.position.y + 0.22 * holder.scale.x, holder.position.z);
+        updateBadge(resizeBadge, `ROT ${String(normalizedYawDeg()).padStart(3, '0')}°`, _v);
         resizeBadge.lookAt(_camPosW);
       } else {
         resizeBadge.visible = false;
@@ -1926,12 +2325,17 @@ export function createTabletop({
       turntableRing.material.opacity = (hoverRing || ringDrag) ? 1.0 : 0.78;
     }
 
-    // Sync ghost wireframe exaggeration & visibility
+    // Sync ghost wireframe, crater point light intensity & visibility
     const stNow = state();
     if (ghostMesh) {
       ghostMesh.visible = !!stNow.ghost;
       ghostMesh.scale.y = stNow.exag || 1;
     }
+
+    eruptionLight.position.y = 1420 * (stNow.exag || 1);
+    const hotGlow = (stNow.erupting ? 1 : 0) * (stNow.hot ?? (stNow.phase === 'explosion' ? 1 : 0.4));
+    const flicker = 0.84 + 0.16 * Math.sin(performance.now() * 0.011);
+    eruptionLight.intensity = hotGlow > 0.01 ? (3.5 + 7.5 * hotGlow) * flicker * (stNow.light === 'night' ? 1.6 : 1.0) : 0;
 
     // CPU terrain fallback when GPU shaders aren't supplied
     if (terrainColors && (Math.abs(stNow.p - lastP) > 0.001 || lastP < 0)) {
@@ -1978,16 +2382,20 @@ export function createTabletop({
       if (lastSmokeSeq !== seq || angleDiff < 0.997) {
         lastSmokeSeq = seq;
         _lastSmokeFwd.copy(_localFwd);
-        smoke.upload(tabletopEU.uCamPosLocal.value, _localFwd, 4);
+        smoke.upload(tabletopEU.uCamPosLocal.value, _localFwd, 2);
         glow.upload();
       }
     }
 
-    // Dirty-checked redraw of capsule dock & open drawer
+    // Zero-stall dirty-checked redraw: dockKey ignores continuous p (3D playhead handles 90 Hz motion)
+    const curSpd = getSpeed ? getSpeed() : (stNow.speed || 1);
     const dockKey = [
-      Math.round(stNow.p * 2000),
       stNow.phase,
+      stNow.timeText || '',
+      stNow.clockText || '',
+      Math.round(curSpd * 100),
       stNow.playing ? 1 : 0,
+      stNow.erupting ? 1 : 0,
       openDrawer || '',
       hoverDockId || '',
       activeSlider?.surface === 'dock' ? activeSlider.id : '',
@@ -1998,19 +2406,25 @@ export function createTabletop({
     }
 
     if (openDrawer) {
-      const drawerKey = [
-        openDrawer,
-        Math.round(stNow.p * 2000),
-        stNow.phase,
-        stNow.playing ? 1 : 0,
-        Math.round(holder.scale.x * 100),
-        normalizedYawDeg(),
-        Math.round((getExag ? getExag() : (stNow.exag || 1)) * 20),
-        stNow.light || 'day',
-        stNow.ghost ? 1 : 0,
-        hoverDrawerId || '',
-        activeSlider?.surface === 'drawer' ? activeSlider.id : '',
-      ].join('|');
+      const drawerKey = openDrawer === 'stages'
+        ? [
+          'stages',
+          stNow.phase,
+          stNow.playing ? 1 : 0,
+          stNow.erupting ? 1 : 0,
+          Math.round(curSpd * 100),
+          hoverDrawerId || '',
+        ].join('|')
+        : [
+          'view',
+          Math.round(holder.scale.x * 100),
+          normalizedYawDeg(),
+          Math.round((getExag ? getExag() : (stNow.exag || 1)) * 20),
+          stNow.light || 'day',
+          stNow.ghost ? 1 : 0,
+          hoverDrawerId || '',
+          activeSlider?.surface === 'drawer' ? activeSlider.id : '',
+        ].join('|');
       if (drawerKey !== lastDrawerKey) {
         lastDrawerKey = drawerKey;
         drawDrawer(stNow);

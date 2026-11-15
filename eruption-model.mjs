@@ -110,12 +110,12 @@ export function traceFlowPaths(terrain, g) {
     return { points, duration:points.at(-1).t, length:points.at(-1).s };
   });
 }
-const colors = { ash:[.48,.46,.43], dark:[.29,.27,.25], steam:[.86,.86,.84], fall:[.67,.65,.61] };
+const colors = { ash:[.48,.46,.43], dark:[.25,.23,.21], warmAsh:[.56,.49,.43], steam:[.88,.89,.88], fall:[.69,.67,.63] };
 // An entraining buoyant-parcel approximation, with an assumed stably stratified
 // atmosphere. Rise follows vertical momentum and decaying buoyancy; there is no
 // imposed plume-top altitude. This is not an eruption-column fluid solver.
 export function plumeRiseProfile(speed, buoyancy, stability=.012, entrainment=.015) {
-  const heights=new Float32Array(601); let y=0,v=speed,b=buoyancy,stopped=false;
+  const heights=new Float32Array(721); let y=0,v=speed,b=buoyancy,stopped=false;
   for(let t=1;t<heights.length;t++) {
     for(let k=0;k<4&&!stopped;k++) {
       b-=.25*(stability*stability*v+entrainment*b);
@@ -126,70 +126,183 @@ export function plumeRiseProfile(speed, buoyancy, stability=.012, entrainment=.0
   }
   return heights;
 }
+function profileNeutralTime(profile) {
+  const peak = profile[profile.length - 1] * 0.94;
+  for (let t = 8; t < profile.length; t++) if (profile[t] >= peak) return t;
+  return profile.length - 1;
+}
 export function createEruption(g, terrain) {
   const R = random(79031), paths = traceFlowPaths(terrain,g), plume=[], flows=[], bombs=[], fallout=[], deposits=[];
   const source = {x:g.cx+g.dx,z:g.cz+g.dz,y:g.floor+150};
+
+  // Precomputed bank of buoyant column profiles (Vulcanian blasts, sustained Plinian column,
+  // secondary collapse jets, and co-ignimbrite phoenix plumes rising off pyroclastic flows).
+  const mkBank = (count, vMin, vSpan, bMin, bSpan, stab = .012, ent = .015) =>
+    Array.from({ length: count }, () => {
+      const profile = plumeRiseProfile(vMin + R() * vSpan, bMin + R() * bSpan, stab, ent);
+      return { profile, neutralT: profileNeutralTime(profile) };
+    });
+  const blastBank = mkBank(14, 118, 70, 1.05, .75);
+  const colBank = mkBank(20, 92, 68, .82, .72);
+  const ventBank = mkBank(14, 62, 56, .48, .55, .012, .017);
+  const phoenixBank = mkBank(12, 22, 32, .26, .34, .013, .022);
+
   const plumeAt = (d,a) => {
-    const t=clamp(a,0,599.999),j=Math.floor(t),rise=mix(d.profile[j],d.profile[j+1],t-j),fan=(1-Math.exp(-a/100))*a*1.2;
-    return { x:d.x+g.wind.x*a*(1+rise/6000)+Math.cos(d.angle)*fan, y:d.y+rise, z:d.z+g.wind.z*a*(1+rise/6000)+Math.sin(d.angle)*fan, rise };
+    const maxT = d.profile.length - 1.001;
+    const t = clamp(a, 0, maxT), j = Math.floor(t), rise = mix(d.profile[j], d.profile[j+1], t-j);
+    const colExpand = (1 - Math.exp(-a / 75)) * a * 1.15;
+    const umbrella = smooth(d.neutralT * 0.72, d.neutralT + 140, a) * a * d.umbrella;
+    const fan = colExpand + umbrella;
+    const windShear = 1 + rise / 5200;
+    return {
+      x: d.x + g.wind.x * a * windShear + Math.cos(d.angle) * fan,
+      y: d.y + rise,
+      z: d.z + g.wind.z * a * windShear + Math.sin(d.angle) * fan,
+      rise,
+    };
   };
-  for (const birth of [0,32,76]) {
-    for(let i=0;i<180;i++) {
-      const a=R()*Math.PI*2,r=R()*75;
-      plume.push({birth:birth+R()*12,x:source.x+Math.cos(a)*r,z:source.z+Math.sin(a)*r,y:source.y+15,profile:plumeRiseProfile(75+R()*65,.6+R()*.8),angle:a,size:45+R()*45});
+
+  // 1. Initial intense Vulcanian blast (0..22 s): violent shock jet + radial umbrella anvil
+  for (let i = 0; i < 210; i++) {
+    const a = R() * Math.PI * 2, r = Math.pow(R(), 0.7) * 85, bk = blastBank[i % blastBank.length];
+    plume.push({
+      birth: R() * 20, x: source.x + Math.cos(a) * r, z: source.z + Math.sin(a) * r, y: source.y + 18,
+      profile: bk.profile, neutralT: bk.neutralT, angle: a, umbrella: 1.8 + R() * 2.1,
+      size: 52 + R() * 52, life: 420 + R() * 140, heatBias: 0.45, tint: i % 3 === 0 ? colors.warmAsh : colors.ash,
+    });
+  }
+
+  // 2. Continuous sustained explosive eruption column (10..150 s) with pulsing mass flux
+  for (let i = 0; i < 860; i++) {
+    const tFrac = i / 860;
+    const birth = 10 + tFrac * 140 + (R() - 0.5) * 4;
+    const pulse = 0.72 + 0.28 * Math.sin(birth * 0.22);
+    const a = R() * Math.PI * 2, r = R() * (65 + 35 * pulse), bk = colBank[(i + ((R() * 5) | 0)) % colBank.length];
+    plume.push({
+      birth, x: source.x + Math.cos(a) * r, z: source.z + Math.sin(a) * r, y: source.y + 15,
+      profile: bk.profile, neutralT: bk.neutralT, angle: a, umbrella: 1.4 + R() * 1.9,
+      size: 46 + R() * 48, life: 360 + R() * 140, heatBias: 0.34 * pulse, tint: i % 4 === 0 ? colors.warmAsh : colors.ash,
+    });
+  }
+
+  // 3. Continuous dome-unroofing vent jets & decompression pulses during collapse (145..610 s)
+  for (let i = 0; i < 620; i++) {
+    const tFrac = i / 620;
+    const birth = 145 + tFrac * 465 + (R() - 0.5) * 6;
+    const taper = 1 - smooth(420, 615, birth) * 0.55;
+    const a = R() * Math.PI * 2, r = R() * 80, bk = ventBank[(i + ((R() * 3) | 0)) % ventBank.length];
+    plume.push({
+      birth, x: source.x + Math.cos(a) * r, z: source.z + Math.sin(a) * r, y: source.y + 10,
+      profile: bk.profile, neutralT: bk.neutralT, angle: a, umbrella: 0.8 + R() * 1.1,
+      size: (38 + R() * 42) * (0.7 + 0.3 * taper), life: 260 + R() * 110, heatBias: 0.26 * taper, tint: colors.ash,
+    });
+  }
+
+  // Ballistic bombs & glowing spatter: intense blast fountain (0..150 s) + collapse ejecta (130..570 s)
+  const addBomb = (birth, elMin, elSpan, vMin, vSpan, szMin, szSpan) => {
+    const a = R() * Math.PI * 2, el = elMin + R() * elSpan, v = vMin + R() * vSpan;
+    const b = {
+      birth, x: source.x + (R() - 0.5) * 45, y: source.y + 14, z: source.z + (R() - 0.5) * 45,
+      vx: Math.cos(a) * Math.cos(el) * v, vy: Math.sin(el) * v, vz: Math.sin(a) * Math.cos(el) * v,
+      size: szMin + R() * szSpan,
+    };
+    let lo = 0, hi = 60;
+    for (let j = 0; j < 20; j++) { const t = (lo + hi) / 2; if (b.y + b.vy * t - 4.905 * t * t > terrain(b.x + b.vx * t, b.z + b.vz * t)) lo = t; else hi = t; }
+    b.hit = hi; bombs.push(b);
+  };
+  for (let i = 0; i < 400; i++) addBomb((i / 400) * 145 + R() * 4, 0.55, 0.85, 58, 95, 1.8, 3.6);
+  for (let i = 0; i < 240; i++) addBomb(135 + (i / 240) * 435 + R() * 8, 0.45, 0.75, 42, 68, 1.5, 2.8);
+
+  // 4. Continuous channelized block-and-ash pyroclastic flows + rising co-ignimbrite phoenix plumes (115..590 s)
+  const SURGES = 22;
+  for (let k = 0; k < SURGES; k++) {
+    const lane = k % paths.length;
+    const path = paths[lane], birth = 115 + (k / (SURGES - 1)) * 460 + (R() - 0.5) * 8;
+    const count = 64;
+    for (let i = 0; i < count; i++) {
+      const pb = phoenixBank[(i + k) % phoenixBank.length];
+      flows.push({
+        birth: birth + (i / count) * 24 + R() * 4,
+        path: lane,
+        lateral: (R() - 0.5) * 58,
+        rate: 0.88 + R() * 0.24,
+        size: 26 + R() * 26,
+        hot: i % 3 === 0,
+        seed: R() * Math.PI * 2,
+        phoenix: pb.profile,
+      });
     }
-    for(let i=0;i<65;i++) {
-      const a=R()*Math.PI*2,el=.6+R()*.8,v=55+R()*75;
-      const b={birth:birth+R()*2,x:source.x,y:source.y+10,z:source.z,vx:Math.cos(a)*Math.cos(el)*v,vy:Math.sin(el)*v,vz:Math.sin(a)*Math.cos(el)*v,size:1.5+R()*3};
-      let lo=0,hi=60;
-      for(let j=0;j<20;j++){ const t=(lo+hi)/2; if(b.y+b.vy*t-4.905*t*t>terrain(b.x+b.vx*t,b.z+b.vz*t))lo=t;else hi=t; }
-      b.hit=hi; bombs.push(b);
+    for (let j = 1; j < path.points.length; j += 3) {
+      const p = path.points[j];
+      deposits.push({ x: p.x, z: p.z, birth: birth + p.t + 8, amount: 7, radius: 28 + .018 * p.s });
     }
   }
-  for(let k=0;k<6;k++) {
-    const path=paths[k%paths.length], birth=120+k*75;
-    for(let i=0;i<180;i++) flows.push({birth:birth+R()*18,path:k%paths.length,lateral:(R()-.5)*45,rate:.9+R()*.2,size:24+R()*25,hot:i%5===0,seed:R()*Math.PI*2});
-    for(let j=1;j<path.points.length;j+=2){ const p=path.points[j]; deposits.push({x:p.x,z:p.z,birth:birth+p.t+9,amount:10,radius:30+.018*p.s}); }
+
+  for (let i = 0; i < 1400; i++) {
+    const parent = plume[(R() * plume.length) | 0], release = 30 + R() * 90, pos = plumeAt(parent, release);
+    const a = { birth: parent.birth + release, x: pos.x + (R() - 0.5) * 280, y: pos.y, z: pos.z + (R() - 0.5) * 280, vx: g.wind.x, vz: g.wind.z, fall: i % 4 === 0 ? .35 + R() * .6 : 2 + R() * 6, size: 10 + R() * 13, amount: 7 + R() * 14 };
+    let lo = 0, hi = 20000;
+    for (let j = 0; j < 24; j++) { const t = (lo + hi) / 2; if (a.y - a.fall * t > terrain(a.x + a.vx * t, a.z + a.vz * t)) lo = t; else hi = t; }
+    a.hit = hi; a.hitX = a.x + a.vx * hi; a.hitZ = a.z + a.vz * hi; fallout.push(a);
   }
-  for(let i=0;i<1400;i++) {
-    const parent=plume[(R()*plume.length)|0], release=35+R()*85, pos=plumeAt(parent,release);
-    const a={birth:parent.birth+release,x:pos.x+(R()-.5)*250,y:pos.y,z:pos.z+(R()-.5)*250,vx:g.wind.x,vz:g.wind.z,fall:i%4===0?.35+R()*.6:2+R()*6,size:10+R()*12,amount:7+R()*14};
-    let lo=0,hi=20000;
-    for(let j=0;j<24;j++){const t=(lo+hi)/2;if(a.y-a.fall*t>terrain(a.x+a.vx*t,a.z+a.vz*t))lo=t;else hi=t;}
-    a.hit=hi; a.hitX=a.x+a.vx*hi; a.hitZ=a.z+a.vz*hi; fallout.push(a);
-  }
-  function sample(time, surface=terrain) {
-    const smoke=[],glow=[],flowDeposits=[],ashDeposits=[];
-    const puff=(kind,x,y,z,size,alpha,color,age,life,heat=0,seed=0)=>smoke.push({kind,x,y,z,size,alpha,color,age,life,heat,seed});
-    if(time<0){
-      // Slow dome growth has a sparse, representative vapour field. Its phase is
-      // derived from the event clock, so it too freezes and replays exactly.
-      for(let i=0;i<22;i++){ const age=((time/7200+i*3.71)%55+55)%55,a=i*2.39996,r=100+(i%4)*55,x=source.x+Math.cos(a)*r+age*.7,z=source.z+Math.sin(a)*r;
-        puff(4,x,surface(x,z)+12+age*2,z,18+age*.9,.12,colors.steam,age,55,0,i); }
-      return {smoke,glow,flowDeposits,ashDeposits};
-    }
-    for(const d of plume){const age=time-d.birth;if(age<=0||age>=600)continue;const p=plumeAt(d,age);
-      puff(0,p.x,p.y,p.z,d.size+p.rise*.12+Math.min(age,200)*1.2,.48*(1-smooth(110,600,age)),colors.ash,age,600,Math.exp(-age/5)*.2,d.angle);
-    }
-    for(const b of bombs){const age=time-b.birth;if(age<0||age>b.hit+35)continue;const a=Math.min(age,b.hit),x=b.x+b.vx*a,z=b.z+b.vz*a;
-      glow.push({x,y:age<b.hit?b.y+b.vy*a-4.905*a*a:surface(x,z)+b.size*.5,z,vx:age<b.hit?b.vx:0,vy:age<b.hit?b.vy-9.81*a:0,vz:age<b.hit?b.vz:0,size:b.size,temp:.8*Math.exp(-age/22)});
-    }
-    for(const d of flows){const age=(time-d.birth)*d.rate,path=paths[d.path];if(age<0||age>path.duration+100)continue;
-      const p=pathAt(path,age,d.lateral),ground=surface(p.x,p.z),f=p.s/Math.max(1,path.length);
-      if(age<path.duration){puff(2,p.x,ground+12,p.z,d.size*(1+.7*f),.7,colors.dark,Math.min(age,4)+2,path.duration+20,.08,d.seed);
-        if(d.hot)glow.push({x:p.x,y:ground+3+Math.abs(Math.sin(age*3+d.seed))*5,z:p.z,vx:p.vx,vy:0,vz:p.vz,size:2.5,temp:.38*Math.exp(-age/180)});
+
+  function sample(time, surface = terrain) {
+    const smoke = [], glow = [], flowDeposits = [], ashDeposits = [];
+    const puff = (kind, x, y, z, size, alpha, color, age, life, heat = 0, seed = 0) => smoke.push({ kind, x, y, z, size, alpha, color, age, life, heat, seed });
+    if (time < 0) {
+      // Continuous deterministic fumarolic vapour rising cleanly as the dome pressurises.
+      const vigor = 0.4 + 0.6 * smooth(-14 * 86400, 0, time);
+      const count = 46;
+      for (let i = 0; i < count; i++) {
+        const age = ((time / 3600 + i * 2.91) % 60 + 60) % 60;
+        const a = i * 2.39996, r = 55 + (i % 5) * 48;
+        const x = source.x + Math.cos(a) * r + g.wind.x * age * 0.14;
+        const z = source.z + Math.sin(a) * r + g.wind.z * age * 0.14;
+        puff(4, x, surface(x, z) + 8 + age * (2.6 + vigor * 1.4), z, 16 + age * (0.9 + 0.4 * vigor), (0.11 + 0.12 * vigor) * (1 - age / 65), colors.steam, age, 60, 0, i);
       }
-      // Ash elutriated from successive points along the moving current.
-      for(let j=0;j<4;j++){const release=path.duration*(j+.3)/4,ca=age-release;if(ca<0||ca>100)continue;const q=pathAt(path,release,d.lateral);
-        puff(1,q.x+g.wind.x*ca*.25,surface(q.x,q.z)+30+3*ca,q.z+g.wind.z*ca*.25,45+ca*2.1,.18*(1-ca/100),colors.ash,ca+1,105,0,d.seed+j);
+      return { smoke, glow, flowDeposits, ashDeposits };
+    }
+    for (const d of plume) {
+      const age = time - d.birth;
+      if (age <= 0 || age >= d.life) continue;
+      const p = plumeAt(d, age);
+      const fade = 1 - smooth(d.life * 0.28, d.life, age);
+      const heat = d.heatBias * Math.exp(-age / 14);
+      puff(0, p.x, p.y, p.z, d.size + p.rise * 0.11 + Math.min(age, 220) * 1.25, 0.50 * fade, d.tint, age, d.life, heat, d.angle);
+    }
+    for (const b of bombs) {
+      const age = time - b.birth;
+      if (age < 0 || age > b.hit + 35) continue;
+      const a = Math.min(age, b.hit), x = b.x + b.vx * a, z = b.z + b.vz * a;
+      glow.push({ x, y: age < b.hit ? b.y + b.vy * a - 4.905 * a * a : surface(x, z) + b.size * 0.5, z, vx: age < b.hit ? b.vx : 0, vy: age < b.hit ? b.vy - 9.81 * a : 0, vz: age < b.hit ? b.vz : 0, size: b.size, temp: 0.9 * Math.exp(-age / 24) });
+    }
+    for (const d of flows) {
+      const age = (time - d.birth) * d.rate, path = paths[d.path];
+      if (age < 0 || age > path.duration + 135) continue;
+      const p = pathAt(path, age, d.lateral), ground = surface(p.x, p.z), f = p.s / Math.max(1, path.length);
+      if (age < path.duration) {
+        const flowHeat = Math.max(0.04, 0.28 * (1 - f * 0.85));
+        puff(2, p.x, ground + 12, p.z, d.size * (1 + 0.78 * f), 0.72, colors.dark, Math.min(age, 4) + 2, path.duration + 20, flowHeat, d.seed);
+        if (d.hot) glow.push({ x: p.x, y: ground + 3 + Math.abs(Math.sin(age * 3 + d.seed)) * 5, z: p.z, vx: p.vx, vy: 0, vz: p.vz, size: 2.8, temp: 0.52 * Math.exp(-age / 190) });
+      }
+      // Buoyant co-ignimbrite phoenix ash clouds elutriated along the moving pyroclastic surge.
+      for (let j = 0; j < 2; j++) {
+        const release = path.duration * (j + 0.35) / 2.2, ca = age - release;
+        if (ca < 0 || ca > 130) continue;
+        const q = pathAt(path, release, d.lateral);
+        const ci = Math.min(d.phoenix.length - 1, Math.floor(ca));
+        const rise = d.phoenix[ci] * 0.65;
+        puff(1, q.x + g.wind.x * ca * 0.42, surface(q.x, q.z) + 26 + rise, q.z + g.wind.z * ca * 0.42, 46 + ca * 2.2, 0.23 * (1 - ca / 130), colors.ash, ca + 1, 132, Math.exp(-ca / 12) * 0.14, d.seed + j);
       }
     }
-    for(const a of fallout){const age=time-a.birth;if(age<0)continue;
-      if(age<a.hit)puff(5,a.x+a.vx*age,a.y-a.fall*age,a.z+a.vz*age,a.size,.24,colors.fall,age+1,a.hit+2,0,a.size);
-      else ashDeposits.push({x:a.hitX,z:a.hitZ,amount:a.amount,radius:180});
+    for (const a of fallout) {
+      const age = time - a.birth;
+      if (age < 0) continue;
+      if (age < a.hit) puff(5, a.x + a.vx * age, a.y - a.fall * age, a.z + a.vz * age, a.size, 0.25, colors.fall, age + 1, a.hit + 2, 0, a.size);
+      else ashDeposits.push({ x: a.hitX, z: a.hitZ, amount: a.amount, radius: 180 });
     }
-    for(const d of deposits)if(time>=d.birth)flowDeposits.push({...d,heat:Math.exp(-(time-d.birth)/900)});
-    return {smoke,glow,flowDeposits,ashDeposits};
+    for (const d of deposits) if (time >= d.birth) flowDeposits.push({ ...d, heat: Math.exp(-(time - d.birth) / 900) });
+    return { smoke, glow, flowDeposits, ashDeposits };
   }
-  return {paths,sample,fallout,plume,source};
+  return { paths, sample, fallout, plume, source };
 }

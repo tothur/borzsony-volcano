@@ -1707,12 +1707,14 @@ function updateLOD() {
 const routeState=state(P3);
 const eruption=createEruption(ERUPTION_GEOMETRY,(x,z)=>heightAt(x,z,routeState));
 let eruptionSeq = 0;
+let hadDep = false, hadFall = false;
 function renderEruption() {
   eruptionSeq++;
-  smoke.clear(); glow.clear(); depData.fill(0); fallData.fill(0);
+  smoke.clear(); glow.clear();
   const active=['dome','explosion','collapse','aftermath'].includes(S.phase);
   const effectTime=active?S.clock:0;
   U.uTime.value=effectTime; EU.uTimeS.value=effectTime;
+  let wroteDep = false, wroteFall = false;
   if(active) {
     const snapshot=eruption.sample(S.clock,(x,z)=>heightAt(x,z));
     for(const d of snapshot.smoke) {
@@ -1721,10 +1723,19 @@ function renderEruption() {
       smoke.shade[i]=d.kind===2?.7:1;
     }
     for(const d of snapshot.glow) { const i=glow.spawn(0,d.x,d.y*exag,d.z,d.vx,d.vy*exag,d.vz,1,d.size,d.temp); glow.age[i]=.1; }
-    for(const d of snapshot.flowDeposits)paintDeposit(depData,DEP_N,DEP_S,DEP_X,DEP_Z,d,2);
-    for(const d of snapshot.ashDeposits)paintDeposit(fallData,FALL_N,FALL_S,FALL_X,FALL_Z,d,1);
+    if (snapshot.flowDeposits.length > 0) {
+      depData.fill(0);
+      for(const d of snapshot.flowDeposits)paintDeposit(depData,DEP_N,DEP_S,DEP_X,DEP_Z,d,2);
+      tDep.needsUpdate=true; wroteDep = true; hadDep = true;
+    }
+    if (snapshot.ashDeposits.length > 0) {
+      fallData.fill(0);
+      for(const d of snapshot.ashDeposits)paintDeposit(fallData,FALL_N,FALL_S,FALL_X,FALL_Z,d,1);
+      tFallout.needsUpdate=true; wroteFall = true; hadFall = true;
+    }
   }
-  tDep.needsUpdate=true; tFallout.needsUpdate=true;
+  if (!wroteDep && hadDep) { depData.fill(0); tDep.needsUpdate=true; hadDep = false; }
+  if (!wroteFall && hadFall) { fallData.fill(0); tFallout.needsUpdate=true; hadFall = false; }
 }
 
 let slowT = 0, fastT = 0;
@@ -1736,6 +1747,7 @@ function adaptResolution(dt) {
   else if (fastT > 4 && pr < PR_MAX) { next = Math.min(PR_MAX, pr + 0.25); fastT = 0; }
   if (next !== pr) { pr = next; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); resize(); }
 }
+let simSpeed = 1;
 const tabletop = createTabletop({
   renderer,
   camera,
@@ -1769,10 +1781,13 @@ const tabletop = createTabletop({
     subtitle: STAGES[S.phase][1],
     timeText: $('time').textContent,
     clockText: $('clock').textContent,
+    clock: S.clock,
+    hot: S.hot,
     active: S.cw > 0.5,
     erupting: ['dome', 'explosion', 'collapse', 'aftermath'].includes(S.phase),
     exag,
     playing,
+    speed: simSpeed,
     light: lightMode,
     ghost: ghost.visible,
     seq: eruptionSeq,
@@ -1784,6 +1799,8 @@ const tabletop = createTabletop({
   watchEruption: () => { goAnim = null; setP(P2); setPlaying(true); },
   getExag: () => exag,
   setExag,
+  getSpeed: () => simSpeed,
+  setSpeed: v => { simSpeed = clamp(v, 0.25, 4); },
   getLight: () => lightMode,
   setLight,
   getGhost: () => ghost.visible,
@@ -1795,7 +1812,7 @@ function frame(now, xrFrame) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if(!tabletop.active)adaptResolution(dt);
   if (goAnim) stepGo(dt);
-  if (playing) { const p0 = P; setP(P + dt * (P < P2 ? 0.02 : P < P3 ? 0.006 : 0.03)); if (P >= 1) setPlaying(false);
+  if (playing) { const p0 = P; setP(P + dt * simSpeed * (P < P2 ? 0.02 : P < P3 ? 0.004 : 0.028)); if (P >= 1) setPlaying(false);
     if (!tabletop.active && p0 < P2 && P >= P2 && camera.position.distanceTo(new THREE.Vector3(DOME.x, camera.position.y, DOME.z)) > 9000) eruptionView(); }
   if (P !== appliedP) apply(P);
 

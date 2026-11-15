@@ -102,7 +102,7 @@ test('capsule dock and floating drawer layouts are in-bounds and non-overlapping
 test('hitTestSurface and hitTestPanel resolve every dock and drawer control cleanly', () => {
   const checks = [
     [DOCK_LAYOUT, DOCK_W, DOCK_H, ['playPause', 'prevStage', 'nextStage', 'timeline', 'drawerStages', 'drawerView', 'placeAgain']],
-    [DRAWER_STAGES_LAYOUT, DRAWER_W, DRAWER_H, ['watchEruption', ...STAGE_PILLS.map(s => `stage:${s.id}`)]],
+    [DRAWER_STAGES_LAYOUT, DRAWER_W, DRAWER_H, ['speed05', 'speed1', 'speed2', 'speed4', 'watchEruption', ...STAGE_PILLS.map(s => `stage:${s.id}`)]],
     [DRAWER_VIEW_LAYOUT, DRAWER_W, DRAWER_H, [
       'scaleSlider', 'scale05', 'scale10', 'scale20',
       'rotSlider', 'rotNorth',
