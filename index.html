@@ -1120,10 +1120,11 @@ class Smoke {
   }
   clear() { this.age.fill(1e9); this.g.instanceCount = 0; }
   // sort far-to-near with a 1024-bucket counting sort and fill the instance buffers
-  upload(cam, fwd = camFwd) {
+  upload(cam, fwd = camFwd, stride = 1) {
     const fx = fwd.x, fy = fwd.y, fz = fwd.z, cx = cam.x, cy = cam.y, cz = cam.z;
     let n = 0, dmin = 1e9, dmax = -1e9;
-    for (let i = 0; i < this.max; i++) {
+    const step = Math.max(1, stride | 0);
+    for (let i = 0; i < this.max; i += step) {
       if (this.age[i] >= this.life[i]) continue;
       const d = (this.px[i] - cx) * fx + (this.py[i] - cy) * fy + (this.pz[i] - cz) * fz;
       this.keys[i] = d; this.order[n++] = i; if (d < dmin) dmin = d; if (d > dmax) dmax = d;
@@ -1705,7 +1706,9 @@ function updateLOD() {
 // direct seeking, reverse scrubbing and replay all give the same snapshot.
 const routeState=state(P3);
 const eruption=createEruption(ERUPTION_GEOMETRY,(x,z)=>heightAt(x,z,routeState));
+let eruptionSeq = 0;
 function renderEruption() {
+  eruptionSeq++;
   smoke.clear(); glow.clear(); depData.fill(0); fallData.fill(0);
   const active=['dome','explosion','collapse','aftermath'].includes(S.phase);
   const effectTime=active?S.clock:0;
@@ -1772,6 +1775,7 @@ const tabletop = createTabletop({
     playing,
     light: lightMode,
     ghost: ghost.visible,
+    seq: eruptionSeq,
   }),
   setTime: p => { goAnim = null; setPlaying(false); setP(p); },
   goTo,
