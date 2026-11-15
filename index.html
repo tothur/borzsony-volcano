@@ -228,6 +228,8 @@ body:not(.show-labels) .label { display: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 </style>
 
+<button id="questMode" type="button" style="position:fixed;z-index:5;top:16px;left:50%;padding:12px;border-radius:16px;background:#182326;color:white" hidden>Place on desk (Quest)</button>
+<style>body.in-xr > :not(#stage):not(script):not(style){visibility:hidden}body.in-xr .label{display:none}</style>
 <div id="stage" aria-label="3D view of the Börzsöny Mountains"></div>
 
 <header class="title glass" aria-live="polite">
@@ -269,6 +271,7 @@ body:not(.show-labels) .label { display: none; }
       <button class="item" type="button" data-view="overview">Overview</button>
       <button class="item" type="button" data-view="summit">Summit dome</button>
       <button class="item" type="button" data-view="notch">Crater notch and flow path</button>
+      <button class="item" type="button" data-view="ashfall">Downwind ashfall</button>
       <button class="item" type="button" data-view="caldera">Caldera centre</button>
       <button class="item" type="button" data-view="danube">Danube Bend</button>
       <button class="item" type="button" data-view="walk">Walk the upper flank</button>
@@ -310,7 +313,8 @@ body:not(.show-labels) .label { display: none; }
   <div class="sheet narrow glass">
     <div class="sheet-head"><h2>About this reconstruction</h2><button class="close" id="aboutClose" type="button" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <p>This is a speculative reconstruction. Today's terrain and imagery are real. The ancient volcano follows Balla (1978) and Karátson et al. (2019): a cone about 13 km across and about 1,200 m high, active 15.0–14.3 million years ago. Its gullies, lava flows, domes and the eruption are modelled, and fine detail below the data resolution is generated.</p>
-    <p>The time column runs from the oldest stage at the bottom to today at the top. The eruption is stretched out so you can watch it; the wavy lines mark where the time scale changes.</p>
+    <p>The time column runs from the oldest stage at the bottom to today at the top. Eruption stages use different time scales; the elapsed-time label, dome, particles and deposits share one clock. Pause freezes the event, and scrubbing reconstructs it deterministically; the wavy lines mark where the time scale changes.</p>
+    <p>The eruption uses a schematic opening notch, an energy-based runout approximation and size-dependent ash settling in an assumed wind. Plume rise follows an entraining buoyant-parcel approximation in an assumed atmosphere. Deposit intensity and the eruption parameters are illustrative, not calibrated hazard estimates.</p>
     <h3>Data</h3>
     <p>Elevation: Copernicus GLO-30 © DLR e.V. 2010–2014, © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the EU and ESA.</p>
     <p>Imagery: <a href="https://s2maps.eu">Sentinel-2 cloudless 2020</a> by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2020), CC BY-NC-SA 4.0.</p>
@@ -327,6 +331,9 @@ body:not(.show-labels) .label { display: none; }
 </script>
 <script type="module">
 import * as THREE from 'three';
+import { createTabletop } from './quest-tabletop.mjs';
+import { eruptionClock, domeEvolution, summitHeight, SUMMIT_GLSL, createEruption } from './eruption-model.mjs';
+import { clipmapCenter } from './terrain-lod.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -421,6 +428,9 @@ const CX = META.center[0], CZ = META.center[1];
 const DOME = { x: CX + 90, z: CZ - 60 };
 const BREACH = { x: Math.cos(Math.PI * 150 / 180), z: -Math.sin(Math.PI * 150 / 180) };   // notch in the crater rim, toward the NW
 
+const ERUPTION_GEOMETRY = { cx: CX, cz: CZ, dx: META.summit.dome[0], dz: META.summit.dome[1],
+  floor: META.summit.floor, lobes: META.summit.lobes, bx: BREACH.x, bz: BREACH.z, half: HALF, wind: {x:9,z:-3} };
+
 // ---------- timeline ----------
 const P1 = 0.06, P2 = 0.30, P3 = 0.60, TA = 14.3;
 function state(p) {
@@ -429,6 +439,8 @@ function state(p) {
   else if (p < P2) { const k = (p - P1) / (P2 - P1); Object.assign(st, { phase: 'growth', t: 15.0 - 0.6 * k, grow: smooth(0, 1, k), u: 0 }); }
   else if (p <= P3) { const u = (p - P2) / (P3 - P2); Object.assign(st, { u, t: 14.4, grow: 1, phase: u < 0.2 ? 'dome' : u < 0.35 ? 'explosion' : u < 0.75 ? 'collapse' : 'aftermath' }); }
   else { const k = (p - P3) / (1 - P3); const t = TA * (1 - k); Object.assign(st, { t, grow: 1, u: 1, phase: t < 0.15 ? 'today' : 'erosion' }); }
+  st.clock = eruptionClock(st.u);
+  st.dome = domeEvolution(st.clock);
   st.s = (st.phase === 'erosion' || st.phase === 'today') ? st.t / TA : 1;
   const t = st.t;
   const u = st.u;
@@ -440,10 +452,10 @@ function state(p) {
 const STAGES = {
   before: ['Before the High Börzsöny', 'Earlier eruptions have left a hilly volcanic landscape at the edge of a warm, shallow sea, the Central Paratethys. The future High Börzsöny is still a gap between older hills.'],
   growth: ['A volcano builds up', 'Andesite lava domes, lava flows and block-and-ash flows pile up around one central vent. In less than a million years they build a cone about 13 km across and roughly 1,200 m high.'],
-  dome: ['A lava dome grows', 'Sticky andesite lava squeezes into the summit crater as a glowing dome. Its crust keeps cracking, and hot blocks tumble down the steep flanks.'],
+  dome: ['A lava dome grows', 'Sticky andesite lava squeezes into the summit crater, swelling into a blocky dome with a hot interior beneath its cooling crust.'],
   explosion: ['The dome explodes', 'Gas trapped under the dome blows part of it apart in a Vulcanian explosion. An ash column rises several kilometres and blocks rain down around the summit.'],
   collapse: ['Block-and-ash flows', 'The broken dome collapses through the low notch in the crater rim. Avalanches of hot blocks and ash race down the gullies, trailing billowing ash clouds.'],
-  aftermath: ['Ash settles', 'Ash drifts east and settles over the forest. Over a few hundred thousand years, eruptions like this one build the whole cone.'],
+  aftermath: ['Ash settles', 'Explosive vent emission has stopped. Wind carries the remaining ash east-northeast as particles fall out, leaving a pale downwind dusting distinct from the thicker block-and-ash deposits. The settling and deposit intensity are schematic.'],
   erosion: ['A volcano taken apart', 'Activity stops before 14 million years ago. The sea floods the volcano’s foot and buries it in limestone. Once the land rises, streams cut into the cone, the summit crater widens into a 4 km erosion caldera, and the mountain tilts to the west-northwest.'],
   today: ['The Börzsöny today', 'Csóványos, 938 m, sits on the rim of the old caldera. The Danube cut its gorge between the Börzsöny and the Visegrád Mountains only after the land rose, late in this story.'],
 };
@@ -472,17 +484,19 @@ function hiAt(x, z) {
   const r = mix(mix(A[i], A[i + 1], a), mix(A[i + n], A[i + n + 1], a), b);
   return (r - 128) * 0.25 * smooth(0, 0.03, Math.min(u, v, 1 - u, 1 - v));
 }
-function heightAt(x, z) {
-  const d = bil(D, ND, x, z), p = bil(PH, NP, x, z) + hiAt(x, z), fill = auxAt(0, x, z), c = auxAt(1, x, z);
-  const b = mix(d + fill, p, S.grow);
-  return d + (b - d) * smooth(c - 0.18, c + 0.18, S.s) * smooth(0.02, 0.07, S.s);
+function heightAt(x, z, st = S) {
+  const d = bil(D, ND, x, z), raw = bil(PH, NP, x, z) + hiAt(x, z), fill = auxAt(0, x, z), c = auxAt(1, x, z);
+  const p = summitHeight(raw, x, z, st.clock, ERUPTION_GEOMETRY);
+  const b = mix(d + fill, p, st.grow);
+  return d + (b - d) * smooth(c - 0.18, c + 0.18, st.s) * smooth(0.02, 0.07, st.s);
 }
 
 // ---------- renderer ----------
 const stageEl = $('stage');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: false });
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: false });
 const PR_MAX = Math.min(2, devicePixelRatio); let pr = PR_MAX;
 renderer.setPixelRatio(pr);
+renderer.xr.enabled = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.62;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stageEl.appendChild(renderer.domElement);
@@ -564,6 +578,7 @@ const U = {
 const SUM = META.summit;
 Object.assign(U, {
   uLobe: { value: Array.from({ length: 6 }, (_, k) => { const L = SUM.lobes[k]; return new THREE.Vector4(CX + L.x, CZ + L.z, L.ra, L.rb); }) },
+  uDomeState: { value: new THREE.Vector3(1, 0, 0) }, uDomeFloor: { value: SUM.floor }, uLobeH: { value: SUM.lobes.map(L => L.h) },
   uLobeR: { value: SUM.lobes.slice(0, 6).map(L => L.rot) },
   uFum: { value: Array.from({ length: 10 }, (_, k) => { const f = SUM.fumaroles[k % SUM.fumaroles.length]; return new THREE.Vector2(CX + f[0], CZ + f[1]); }) },
   uBreachDir: { value: new THREE.Vector2(BREACH.x, BREACH.z) },
@@ -572,7 +587,7 @@ const COMMON = /* glsl */`
 uniform sampler2D tD, tP, tAux, tNoise, tSat;
 uniform float uND, uNP, uSize, uGrow, uS, uExag, uCW, uFresh, uHot, uTime, uBase;
 uniform vec2 uCenter, uDome;
-uniform sampler2D tDep; uniform vec2 uDepXZ; uniform float uDepS, uDepOn;
+uniform sampler2D tDep, tFallout; uniform vec2 uDepXZ, uFallXZ; uniform float uDepS, uDepOn, uFallS;
 uniform sampler2D tHi; uniform float uHiOn, uHiN, uHiExt; uniform vec2 uHi0;
 // how much of the ancient (eruption-era) surface survives here at the current time
 float paleoW(vec4 aux) { return uGrow * smoothstep(aux.g - 0.18, aux.g + 0.18, uS) * smoothstep(0.02, 0.07, uS); }   // exactly zero today
@@ -626,6 +641,13 @@ float lobeQ(vec2 xz, int k) {
   float u = (d.x * c + d.y * s) / L.z, v = (-d.x * s + d.y * c) / L.w; return sqrt(u * u + v * v);
 }
 float domeQ(vec2 xz) { float q = 9.0; for (int k = 0; k < 6; k++) q = min(q, lobeQ(xz, k)); return q; }   // < 1 inside a lobe
+${SUMMIT_GLSL}
+float summitDetail(vec2 xz) {
+  if (distance(xz,uDome)>800.0) return 1.0;
+  vec2 d = xz-uDome; float along = dot(d,uBreachDir), across = dot(d,vec2(-uBreachDir.y,uBreachDir.x));
+  float keep = 1.0-uDomeState.y*smoothstep(-70.0,100.0,along)*(1.0-smoothstep(130.0,290.0,abs(across)));
+  return mix(1.0,uDomeState.x*keep,1.0-smoothstep(0.98,1.4,domeQ(xz)));
+}
 // blocky crust of lava domes and andesite flows: three voronoi block sizes, band-limited like the fractal detail
 float blockMask(vec2 xz, vec4 aux) { return paleoW(aux) * max(max(smoothstep(1.2, 0.95, domeQ(xz)) * uFresh, aux.b * 0.22 * uFresh), win(xz).z * 0.3); }
 float blocks(vec2 xz, float minL, float maxL, float mask) {
@@ -650,7 +672,7 @@ float bilF(sampler2D t, vec2 uv, float n) {
 vec4 auxAt(vec2 xz) { return textureLod(tAux, (wuv(xz) * 1023.0 + 0.5) / 1024.0, 0.0); }
 float baseH(vec2 xz, out vec4 aux) {
   vec2 uv = wuv(xz);
-  float d = bilF(tD, uv, uND), p = bilF(tP, uv, uNP) + hiRes(xz);
+  float d = bilF(tD, uv, uND), p = summitH(bilF(tP, uv, uNP) + hiRes(xz), xz);
   aux = auxAt(xz);
   float b = mix(d + aux.r, p, uGrow);
   return d + (b - d) * smoothstep(aux.g - 0.18, aux.g + 0.18, uS) * smoothstep(0.02, 0.07, uS);   // the ancient surface is fully gone today
@@ -676,7 +698,7 @@ float detailBand(vec2 xz, float minL, float maxL, float rough, float damp) {
 }
 float terrainH(vec2 xz, float minL, out vec4 aux) {
   float b = baseH(xz, aux);
-  vec4 w1 = win(xz) * paleoW(aux);
+  vec4 w1 = win(xz) * paleoW(aux); w1.x *= summitDetail(xz);
   return b + w1.x * (1.0 - smoothstep(2.5, 5.0, minL)) + detailBand(xz, minL, 1e5, terrRough(xz, aux) * (1.0 - 0.6 * w1.w), max(hiW(xz), w1.w)) + blocks(xz, minL, 1e5, blockMask(xz, aux));
 }
 vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
@@ -728,10 +750,10 @@ const FRAG_COLOR = /* glsl */`
     float hx = detailBand(vW.xz + vec2(e, 0.0), minL, maxL, rough, dmp) + blocks(vW.xz + vec2(e, 0.0), minL, maxL, bm);
     float hz = detailBand(vW.xz + vec2(0.0, e), minL, maxL, rough, dmp) + blocks(vW.xz + vec2(0.0, e), minL, maxL, bm);
     gNW = normalize(vNW + vec3(-(hx - h0) / e, 0.0, -(hz - h0) / e) * uExag);
-    vec4 w0 = win(vW.xz) * paleoW(vAux);
+    vec4 w0 = win(vW.xz) * paleoW(vAux); w0.x *= summitDetail(vW.xz);
     if (w0.w > 0.0) {
       float e1 = max(foot, 0.6), k = smoothstep(2.5, 5.0, 2.0 * vSEff);          // the part of the 1 m relief the mesh is too coarse to carry
-      float pwf = paleoW(vAux), rx = win(vW.xz + vec2(e1, 0.0)).x * pwf, rz = win(vW.xz + vec2(0.0, e1)).x * pwf;
+      float pwf = paleoW(vAux), rx = win(vW.xz + vec2(e1, 0.0)).x * pwf * summitDetail(vW.xz + vec2(e1, 0.0)), rz = win(vW.xz + vec2(0.0, e1)).x * pwf * summitDetail(vW.xz + vec2(0.0, e1));
       gNW = normalize(gNW + vec3(-(rx - w0.x) / e1, 0.0, -(rz - w0.x) / e1) * uExag * k);
       gRock = w0.y; gScree = w0.z;
     }
@@ -808,6 +830,11 @@ const FRAG_COLOR = /* glsl */`
     float dep = uDepOn * inW * texture(tDep, clamp(duv, 0.0, 1.0)).r;
     p = mix(p, lin(vec3(0.50, 0.47, 0.43)) * (0.8 + 0.35 * n4) * (0.85 + 0.3 * n5), smoothstep(0.01, 0.10, dep));
   }
+  vec2 fuv = (vW.xz-uFallXZ)/uFallS;
+  if (uDepOn > 0.5 && fuv.x >= 0.0 && fuv.y >= 0.0 && fuv.x <= 1.0 && fuv.y <= 1.0) {
+    float dust = texture(tFallout,fuv).r;
+    p = mix(p,lin(vec3(0.59,0.57,0.53))*(0.85+0.2*n4),min(0.78,dust*1.4));
+  }
   col = mix(sat * mix(1.0, gAO, 0.35), p * gAO, uCW);
 #endif
   diffuseColor.rgb = col;
@@ -816,7 +843,7 @@ const FRAG_EMIS = /* glsl */`
 #ifndef SKIRT
   {
     float dq = domeQ(vW.xz);
-    float domeM = smoothstep(1.05, 0.9, dq);
+    float domeM = smoothstep(1.05, 0.9, dq) * smoothstep(uDomeFloor + 6.0, uDomeFloor + 30.0, vW.y);
     float crack = 0.0;
     if (domeM > 0.0 && uHot > 0.0) {
       // incandescence only where lava is still moving: the top of the main lobe and the fresh front facing the notch
@@ -916,8 +943,6 @@ const ghost = new THREE.Mesh(ghostGeom, new THREE.MeshBasicMaterial({ color: 0x9
 ghost.visible = false; ghost.renderOrder = 5; scene.add(ghost);
 
 // ---------- eruption: lit billboard ash + glowing blocks ----------
-const TS = 3;                                   // eruption runs 3x faster than real time
-const WIND = { x: 9, z: -3 };                   // m/s toward the east-northeast
 const sunH = new THREE.Vector2(sunDir.x, sunDir.z).normalize();
 // Puff atlas: 2x2 variants of 512 px. RG = normal, B = thickness, A = density.
 const tAtlas = (() => {
@@ -1076,9 +1101,9 @@ class Smoke {
     const i = this.cur; this.cur = (i + 1) % this.max;
     this.kind[i] = kind; this.px[i] = x; this.py[i] = y; this.pz[i] = z; this.vx[i] = vx; this.vy[i] = vy; this.vz[i] = vz;
     this.age[i] = 0; this.life[i] = life; this.s0[i] = s0; this.s1[i] = s1;
-    const j = 0.92 + Math.random() * 0.16;
+    const j = 1;
     this.cr[i] = c[0] * j; this.cg[i] = c[1] * j; this.cb[i] = c[2] * j; this.ca[i] = a; this.heat[i] = heat;
-    this.rot[i] = Math.random() * 6.283; this.rs[i] = (Math.random() - 0.5) * 0.12; this.vari[i] = (Math.random() * 4) | 0;
+    this.rot[i] = 0; this.rs[i] = 0; this.vari[i] = 0;
     this.gy[i] = heightAt(x, z) * exag; this.shade[i] = 1; this.pid[i] = -1; this.y0[i] = y; this.size[i] = s0;
     return i;
   }
@@ -1126,7 +1151,7 @@ class Glow {
   spawn(kind, x, y, z, vx, vy, vz, life, size, temp = 1) {
     const i = this.cur; this.cur = (i + 1) % this.max;
     this.kind[i] = kind; this.px[i] = x; this.py[i] = y; this.pz[i] = z; this.vx[i] = vx; this.vy[i] = vy; this.vz[i] = vz;
-    this.age[i] = 0; this.life[i] = life; this.size[i] = size; this.temp[i] = temp; this.pid[i] = -1; this.hop[i] = Math.random() * 6.283;
+    this.age[i] = 0; this.life[i] = life; this.size[i] = size; this.temp[i] = temp; this.pid[i] = -1; this.hop[i] = 0;
     return i;
   }
   clear() { this.age.fill(1e9); this.g.instanceCount = 0; }
@@ -1149,42 +1174,35 @@ class Glow {
 const camFwd = new THREE.Vector3();
 const smoke = new Smoke(SMALL ? 8000 : 30000), glow = new Glow(SMALL ? 3000 : 9000);
 
-// Fresh block-and-ash deposits, painted as the flows run: R = thickness, G = heat
-const DEP_N = 512, DEP_S = 10000, DEP_X = CX - DEP_S / 2, DEP_Z = CZ - DEP_S / 2;
-const depData = new Uint8Array(DEP_N * DEP_N * 2);
-const tDep = new THREE.DataTexture(depData, DEP_N, DEP_N, THREE.RGFormat, THREE.UnsignedByteType);
-tDep.magFilter = tDep.minFilter = THREE.LinearFilter; tDep.needsUpdate = true;
-let depDirty = false, depEmpty = true;
-function depPaint(x, z, amt) {
-  const c = ((x - DEP_X) / DEP_S * DEP_N) | 0, r = ((z - DEP_Z) / DEP_S * DEP_N) | 0;
-  if (c < 1 || r < 1 || c >= DEP_N - 1 || r >= DEP_N - 1) return;
-  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-    const k = ((r + dr) * DEP_N + c + dc) * 2, w = dr || dc ? 0.5 : 1;
-    depData[k] = Math.min(255, depData[k] + amt * w); depData[k + 1] = Math.max(depData[k + 1], 255 * w);
-  }
-  depDirty = true; depEmpty = false;
+// Separate qualitative layers for coarse PDC deposits and dispersed ashfall.
+const DEP_N = 512, DEP_S = 20000, DEP_X = CX-DEP_S/2, DEP_Z = CZ-DEP_S/2;
+const FALL_N = 256, FALL_S = 24000, FALL_X = CX-FALL_S/2, FALL_Z = CZ-FALL_S/2;
+const depData = new Uint8Array(DEP_N*DEP_N*2), fallData = new Uint8Array(FALL_N*FALL_N);
+const tDep = new THREE.DataTexture(depData,DEP_N,DEP_N,THREE.RGFormat,THREE.UnsignedByteType);
+const tFallout = new THREE.DataTexture(fallData,FALL_N,FALL_N,THREE.RedFormat,THREE.UnsignedByteType);
+for (const t of [tDep,tFallout]) { t.magFilter=t.minFilter=THREE.LinearFilter; t.needsUpdate=true; }
+Object.assign(U,{ tDep:{value:tDep},tFallout:{value:tFallout},uDepXZ:{value:new THREE.Vector2(DEP_X,DEP_Z)},
+  uDepS:{value:DEP_S},uDepOn:{value:0},uFallXZ:{value:new THREE.Vector2(FALL_X,FALL_Z)},uFallS:{value:FALL_S} });
+function paintDeposit(data,n,span,x0,z0,d,channels) {
+  const fx=(d.x-x0)/span*n,fz=(d.z-z0)/span*n,radius=Math.max(1,d.radius/span*n),r=Math.ceil(radius);
+  if(fx < -r || fz < -r || fx >= n+r || fz >= n+r) return;
+  for(let y=Math.max(0,Math.floor(fz)-r);y<=Math.min(n-1,Math.ceil(fz)+r);y++)
+    for(let x=Math.max(0,Math.floor(fx)-r);x<=Math.min(n-1,Math.ceil(fx)+r);x++) {
+      const q=Math.hypot(x-fx,y-fz)/radius; if(q>1)continue;
+      const w=(1-q*q)**2,k=(y*n+x)*channels;
+      data[k]=Math.min(255,data[k]+Math.round(d.amount*w));
+      if(channels===2)data[k+1]=Math.max(data[k+1],Math.round(255*d.heat*w));
+    }
 }
-function depClear() { if (!depEmpty) { depData.fill(0); depDirty = true; depEmpty = true; } }
-let depCool = 0;
-function depUpdate(dt) {
-  depCool += dt;
-  if (depCool > 0.3 && !depEmpty) { depCool = 0; for (let k = 1; k < depData.length; k += 2) if (depData[k]) depData[k] = (depData[k] * 0.985) | 0; depDirty = true; }
-  if (depDirty) { tDep.needsUpdate = true; depDirty = false; }
-}
-Object.assign(U, { tDep: { value: tDep }, uDepXZ: { value: new THREE.Vector2(DEP_X, DEP_Z) }, uDepS: { value: DEP_S }, uDepOn: { value: 0 } });
 
 // ---------- state ----------
-let P = 0.48, appliedP = -1, lastPhIdx = -1;
+let P = 0.48, appliedP = -1;
 function apply(p) {
   S = state(p);
-  U.uGrow.value = S.grow; U.uS.value = S.s; U.uCW.value = S.cw; U.uFresh.value = S.fresh; U.uHot.value = S.hot;
-  const PH = ['before', 'growth', 'dome', 'explosion', 'collapse', 'aftermath', 'erosion', 'today'], phIdx = PH.indexOf(S.phase);
-  if (phIdx < lastPhIdx) resetEruption();
-  lastPhIdx = phIdx;
-  if (!['dome', 'explosion', 'collapse', 'aftermath'].includes(S.phase)) resetEruption();
-  else if (S.phase === 'dome') depClear();
-  U.uDepOn.value = ['explosion', 'collapse', 'aftermath'].includes(S.phase) ? 1 : 0;
-  appliedP = p; updateHud();
+  U.uGrow.value=S.grow; U.uS.value=S.s; U.uCW.value=S.cw; U.uFresh.value=S.fresh; U.uHot.value=S.hot;
+  U.uDomeState.value.set(S.dome.growth,S.dome.failure,S.dome.opening);
+  U.uDepOn.value=['explosion','collapse','aftermath'].includes(S.phase)?1:0;
+  appliedP=p; renderEruption(); updateHud();
 }
 
 // ---------- HUD ----------
@@ -1229,10 +1247,12 @@ function updateHud() {
   if (S.phase === 'today') time = 'Today';
   else if (S.phase === 'before') clock = 'million years ago';
   else if (S.phase === 'growth') clock = 'cone growing';
-  else if (S.phase === 'dome') clock = 'eruption · weeks of dome growth';
-  else if (S.phase === 'explosion') clock = 'eruption · first minutes';
-  else if (S.phase === 'collapse') clock = 'eruption · hour ' + (1 + Math.floor((S.u - 0.35) / 0.4 * 6));
-  else if (S.phase === 'aftermath') clock = 'days later';
+  else if (S.phase === 'dome') clock = `${Math.max(0,Math.ceil(-S.clock/86400))} days before explosion`;
+  else if (S.clock >= 0 && ['explosion','collapse','aftermath'].includes(S.phase)) {
+    const seconds=Math.floor(S.clock);
+    clock = seconds < 3600 ? `${Math.floor(seconds/60)}m ${String(seconds%60).padStart(2,'0')}s after explosion`
+      : seconds < 86400 ? `${(seconds/3600).toFixed(1)} hours after explosion` : `${(seconds/86400).toFixed(1)} days after explosion`;
+  }
   else clock = 'million years ago';
   $('time').textContent = time; $('clock').textContent = clock;
   $('cursor').style.bottom = P * 100 + '%';
@@ -1325,6 +1345,7 @@ const exBtns = { ex1: 1, ex2: 2 };
 for (const [id, v] of Object.entries(exBtns)) $(id).addEventListener('click', () => {
   controls.target.y *= v / exag; camera.position.y *= v / exag; exag = v; U.uExag.value = v;
   for (const k of Object.keys(exBtns)) $(k).setAttribute('aria-pressed', String(k === id));
+  renderEruption();
 });
 // day / dusk / night: incandescence on a lava dome is mostly seen after dark
 const deg = THREE.MathUtils.degToRad;
@@ -1382,7 +1403,12 @@ function groundAt(x, z) {
   const coneW = smooth(7000, 2500, Math.hypot(x - CX, z - CZ));
   const rough = (mix(0.55, 1.5, S.fresh * coneW) + auxAt(2, x, z) * 1.4 * S.fresh + auxAt(3, x, z) * S.fresh) * (1 - 0.6 * w1);
   const hw = HI ? smooth(0, 0.03, Math.min((x - HI.x0) / HI.ext, (z - HI.z0) / HI.ext, 1 - (x - HI.x0) / HI.ext, 1 - (z - HI.z0) / HI.ext)) : 0;
-  return heightAt(x, z) + res * pw + detailCPU(x, z, 1, rough, Math.max(hw, w1));
+  const qx=x-DOME.x,qz=z-DOME.z,along=qx*BREACH.x+qz*BREACH.z,across=-qx*BREACH.z+qz*BREACH.x;
+  let qmin=Infinity;
+  for(const L of SUM.lobes){const dx=x-CX-L.x,dz=z-CZ-L.z,c=Math.cos(L.rot),s=Math.sin(L.rot);qmin=Math.min(qmin,Math.hypot((dx*c+dz*s)/L.ra,(-dx*s+dz*c)/L.rb));}
+  const keep=1-S.dome.failure*smooth(-70,100,along)*(1-smooth(130,290,Math.abs(across)));
+  const detail=mix(1,S.dome.growth*keep,1-smooth(.98,1.4,qmin));
+  return heightAt(x, z) + res * pw * detail + detailCPU(x, z, 1, rough, Math.max(hw, w1));
 }
 const raycaster = new THREE.Raycaster(), _ndc = new THREE.Vector2();
 function pickTerrain(clientX, clientY) {
@@ -1418,7 +1444,7 @@ function eruptionView() {
         new THREE.Vector3(DOME.x + BREACH.x * 1500, dh + 450, DOME.z + BREACH.z * 1500));
 }
 controls.addEventListener('start', () => { fly = null; });
-$('eruptView').addEventListener('click', () => { if (P < P2 || P > P3) goTo(P2 + 0.5 * (P3 - P2)); eruptionView(); });
+$('eruptView').addEventListener('click', () => { setP(P2); setPlaying(true); eruptionView(); });
 
 function setMode(m, quiet) {
   if (m === camMode) return;
@@ -1588,6 +1614,11 @@ const VIEWS = {
   summit: () => { const h = groundAt(DOME.x, DOME.z) * exag; flyTo(V3(DOME.x + 520, h + 260, DOME.z + 620), V3(DOME.x, h, DOME.z)); },
   eruption: () => eruptionView(),
   notch: () => { const x = CX + BREACH.x * 1100, z = CZ + BREACH.z * 1100, h = groundAt(x, z) * exag; flyTo(V3(x + BREACH.x * 1300 - BREACH.z * 900, h + 450, z + BREACH.z * 1300 + BREACH.x * 900), V3(x, h, z)); },
+  ashfall: () => {
+    goTo(P2 + .79 * (P3 - P2));
+    const wind=ERUPTION_GEOMETRY.wind,n=Math.hypot(wind.x,wind.z),x=CX+wind.x/n*6500,z=CZ+wind.z/n*6500;
+    flyTo(V3(x+3500,4800*exag,z+6000),V3(x,350*exag,z));
+  },
   caldera: () => { const h = groundAt(CX, CZ) * exag; flyTo(V3(CX + 2600, h + 1500, CZ + 3600), V3(CX, h, CZ)); },
   danube: () => { const L = META.labels.find(l => l.kind === 'water') || { x: CX, z: CZ + 8000 }; flyTo(V3(L.x + 5200, 2600, L.z + 6500), V3(L.x, 120, L.z)); },
   walk: () => { const x = CX - 1900, z = CZ + 1300; if (camMode !== 'orbit') setMode('orbit', true); fly = null; controls.target.set(x, groundAt(x, z) * exag, z); setMode('walk'); yaw = Math.atan2(-(DOME.x - x), -(DOME.z - z)); pitch = 0.05; },
@@ -1626,15 +1657,14 @@ addEventListener('resize', resize); resize();
 
 // ---------- per-frame ----------
 const fogClear = new THREE.Color(0xbfcbd3), fogPaleo = new THREE.Color(0xc9c7b8), fogAsh = new THREE.Color(0x77716a), fogCol = new THREE.Color();
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-let last = performance.now(), acc = { plume: 0, spark: 0, pdc: 0, cloud: 0 }, pulseT = 0, bombsDone = false;
+let last = performance.now();
 function updateLOD() {
   const cx = camera.position.x, cz = camera.position.z;
   const hAbove = Math.max(1, camera.position.y - heightAt(cx, cz) * exag);
   const Lmin = clamp(Math.floor(Math.log2(hAbove / (M * S0 * 1.5))), 0, NL - 1);
   for (let L = 0; L < NL; L++) {
-    const lv = levels[L], s = lv.cell, step = 2 * s;
-    const c = lv.lu.uLevelCenter.value.set(Math.round(cx / step) * step, Math.round(cz / step) * step);
+    const lv = levels[L], center = clipmapCenter(cx, cz, lv.cell, L === NL - 1);
+    lv.lu.uLevelCenter.value.set(center.x, center.z);
     lv.mesh.visible = L >= Lmin;
     if (L > Lmin) {
       const f = levels[L - 1], fc = f.lu.uLevelCenter.value, fh = M * f.cell - f.cell * 0.05;
@@ -1653,200 +1683,28 @@ function updateLOD() {
   sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.normalBias = clamp(texel * 0.8, 0.3, 30);
 }
-function gradAt(x, z) { const e = 12; return [(heightAt(x + e, z) - heightAt(x - e, z)) / (2 * e), (heightAt(x, z + e) - heightAt(x, z - e)) / (2 * e)]; }
 
-// Downhill paths from the notch in the crater rim, traced once on the eruption-time surface
-const STEP = 20; let PATHS = null;
-function tracePaths() {
-  const out = [];
-  for (const off of [-0.4, -0.13, 0.13, 0.4]) {
-    const ang = Math.atan2(BREACH.z, BREACH.x) + off;
-    let dx = Math.cos(ang), dz = Math.sin(ang);
-    let x = CX + dx * META.RC * 1.3, z = CZ + dz * META.RC * 1.3, flat = 0;
-    const xs = [x], zs = [z];
-    for (let k = 0; k < 300; k++) {
-      const [gx, gz] = gradAt(x, z), gl = Math.hypot(gx, gz) + 1e-6;
-      dx = dx * 0.8 - gx / gl * 0.2; dz = dz * 0.8 - gz / gl * 0.2; const dl = Math.hypot(dx, dz); dx /= dl; dz /= dl;
-      x += dx * STEP; z += dz * STEP;
-      if (Math.abs(x) > HALF - 60 || Math.abs(z) > HALF - 60) break;
-      xs.push(x); zs.push(z);
-      if (gl < 0.025) { if (++flat > 20) break; } else flat = 0;
+// Re-evaluate a seeded event at the selected time. Pausing has no side effects;
+// direct seeking, reverse scrubbing and replay all give the same snapshot.
+const routeState=state(P3);
+const eruption=createEruption(ERUPTION_GEOMETRY,(x,z)=>heightAt(x,z,routeState));
+function renderEruption() {
+  smoke.clear(); glow.clear(); depData.fill(0); fallData.fill(0);
+  const active=['dome','explosion','collapse','aftermath'].includes(S.phase);
+  const effectTime=active?S.clock:0;
+  U.uTime.value=effectTime; EU.uTimeS.value=effectTime;
+  if(active) {
+    const snapshot=eruption.sample(S.clock,(x,z)=>heightAt(x,z));
+    for(const d of snapshot.smoke) {
+      const i=smoke.spawn(d.kind,d.x,d.y*exag,d.z,0,0,0,1,d.size,d.size,d.color,d.alpha,d.heat);
+      smoke.age[i]=.25; smoke.size[i]=d.size; smoke.rot[i]=d.seed; smoke.vari[i]=Math.abs(Math.floor(d.seed*17))%4;
+      smoke.shade[i]=d.kind===2?.7:1;
     }
-    const sx = Float32Array.from(xs), sz = Float32Array.from(zs);       // smooth the polyline
-    for (let it = 0; it < 3; it++) for (let i = 1; i < sx.length - 1; i++) { sx[i] = (sx[i - 1] + 2 * sx[i] + sx[i + 1]) / 4; sz[i] = (sz[i - 1] + 2 * sz[i] + sz[i + 1]) / 4; }
-    out.push({ x: sx, z: sz, len: (sx.length - 1) * STEP });
+    for(const d of snapshot.glow) { const i=glow.spawn(0,d.x,d.y*exag,d.z,d.vx,d.vy*exag,d.vz,1,d.size,d.temp); glow.age[i]=.1; }
+    for(const d of snapshot.flowDeposits)paintDeposit(depData,DEP_N,DEP_S,DEP_X,DEP_Z,d,2);
+    for(const d of snapshot.ashDeposits)paintDeposit(fallData,FALL_N,FALL_S,FALL_X,FALL_Z,d,1);
   }
-  return out;
-}
-const _pp = { x: 0, z: 0, tx: 0, tz: 0 };
-function pathPos(p, s, l, o) {
-  const n = p.x.length, f = clamp(s / STEP, 0, n - 1.001), i = f | 0, t = f - i;
-  const a = Math.max(0, i - 2), b = Math.min(n - 1, i + 3);
-  let tx = p.x[b] - p.x[a], tz = p.z[b] - p.z[a]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
-  o.x = mix(p.x[i], p.x[i + 1], t) - tz * l; o.z = mix(p.z[i], p.z[i + 1], t) + tx * l; o.tx = tx; o.tz = tz;
-  return o;
-}
-
-const ASH_DARK = [0.23, 0.21, 0.19], ASH = [0.46, 0.44, 0.41], ASH_LIGHT = [0.68, 0.66, 0.62], STEAM = [0.88, 0.88, 0.88], DUST = [0.47, 0.42, 0.36];
-const ER = { acc: {}, blastT: 0, pulseT: 0, pulse: null };
-const vent = () => ({ x: DOME.x, z: DOME.z, y: heightAt(DOME.x, DOME.z) * exag });
-function rate(key, r, dt, fn) { ER.acc[key] = (ER.acc[key] || 0) + r * dt; while (ER.acc[key] >= 1) { ER.acc[key]--; fn(); } }
-function resetEruption() { smoke.clear(); glow.clear(); depClear(); ER.acc = {}; ER.blastT = 0; ER.pulseT = 0; ER.pulse = null; }
-
-function column(v, strength) {
-  const R = Math.random, a = R() * 6.283, rr = R() * 110;
-  smoke.spawn(K_PLUME, v.x + Math.cos(a) * rr, v.y + 40, v.z + Math.sin(a) * rr,
-    Math.cos(a) * 8, 30 + (90 + R() * 110) * strength, Math.sin(a) * 8, 170 + R() * 90, 45 + R() * 45, 0, ASH_DARK, 0.92, strength > 0.9 ? 0.7 : 0.15);
-}
-function blast(v) {
-  const R = Math.random;
-  for (let k = 0; k < 240; k++) {                                   // ballistic blocks
-    const a = R() * 6.283, el = 0.55 + R() * 0.9, sp = 60 + R() * 120;
-    glow.spawn(0, v.x + (R() - .5) * 80, v.y + 40, v.z + (R() - .5) * 80, Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp, Math.sin(a) * Math.cos(el) * sp, 90, 3 + R() * 6, 1);
-  }
-  for (let k = 0; k < 240; k++) {                                   // fast, dark, hot jet
-    const a = R() * 6.283, rr = R() * 90;
-    smoke.spawn(K_PLUME, v.x + Math.cos(a) * rr, v.y + 30 + R() * 250, v.z + Math.sin(a) * rr, Math.cos(a) * 30 * R(), 150 + R() * 160, Math.sin(a) * 30 * R(),
-      170 + R() * 80, 80 + R() * 70, 0, ASH_DARK, 0.95, 1);
-  }
-}
-function flowParticle(p, pi, hot) {
-  const R = Math.random, l = (R() - 0.5) * 80, s = R() * 40, o = pathPos(p, s, l, _pp);
-  const sys = hot ? glow : smoke;
-  const i = hot ? glow.spawn(2, o.x, heightAt(o.x, o.z) * exag, o.z, 0, 0, 0, 400, 2.5 + R() * 5, 0.85 + R() * 0.15)
-                : smoke.spawn(K_DENSE, o.x, heightAt(o.x, o.z) * exag + 10, o.z, 0, 0, 0, 400, 40 + R() * 45, 0, ASH_DARK, 0.88, 0.5);
-  sys.pid[i] = pi; sys.ps[i] = s; sys.pl[i] = l; sys.pv[i] = 30 + R() * 22; sys.pmax[i] = p.len * (hot ? 0.45 + R() * 0.5 : 0.55 + R() * 0.45);
-}
-function emit(dt) {
-  const ph = S.phase, R = Math.random, v = vent();
-  if (!PATHS && S.grow === 1 && S.s === 1) PATHS = tracePaths();
-  if (S.grow > 0.95 && S.fresh > 0.5) rate('fum', 8, dt, () => {         // fumaroles steam all the time
-    const f = SUM.fumaroles[(R() * SUM.fumaroles.length) | 0], x = CX + f[0] + (R() - .5) * 30, z = CZ + f[1] + (R() - .5) * 30;
-    smoke.spawn(K_STEAM, x, heightAt(x, z) * exag + 4, z, 0, 5 + R() * 6, 0, 45, 12, 140 + R() * 120, STEAM, 0.3, Math.hypot(x - DOME.x, z - DOME.z) < 300 ? 0.12 : 0);
-  });
-  if (ph === 'dome' || ph === 'aftermath') rate('steam', ph === 'dome' ? 9 : 5, dt, () => {
-    const a = R() * 6.283, rr = R() * 230;
-    smoke.spawn(K_STEAM, v.x + Math.cos(a) * rr, v.y + 25, v.z + Math.sin(a) * rr, 0, 10 + R() * 14, 0, 70, 60, 380 + R() * 260, STEAM, 0.38);
-  });
-  if (ph === 'dome') rate('rock', 8, dt, () => {
-    const a = R() * 6.283, rr = 250 + R() * 160, x = DOME.x + Math.cos(a) * rr, z = DOME.z + Math.sin(a) * rr, sp = 5 + R() * 9;
-    glow.spawn(1, x, heightAt(x, z) * exag + 3, z, Math.cos(a) * sp, 0, Math.sin(a) * sp, 40 + R() * 20, 2.5 + R() * 4, 0.8 + R() * 0.2);
-  });
-  if (ph === 'explosion' || ph === 'collapse') {
-    ER.blastT -= dt;
-    if (ph === 'explosion' && ER.blastT <= 0) { ER.blastT = 6 + R() * 3; blast(v); }
-    rate('plume', ph === 'explosion' ? 85 : 35, dt, () => column(v, ph === 'explosion' ? 1 : 0.6));
-  }
-  if (ph === 'aftermath') rate('plume', 8, dt, () => column(v, 0.25));
-  if (ph === 'collapse' && PATHS) {
-    ER.pulseT -= dt;
-    if (ER.pulseT <= 0) { ER.pulseT = 8 + R() * 3; const k = (R() * PATHS.length) | 0; ER.pulse = { k, t: 0 }; }
-    if (ER.pulse && ER.pulse.t < 3.5) {
-      ER.pulse.t += dt; const k = ER.pulse.k, p = PATHS[k];
-      rate('dense', 240, dt, () => flowParticle(p, k, false));
-      rate('blocks', 120, dt, () => flowParticle(p, k, true));
-    }
-  } else ER.pulse = null;
-  if (ph === 'aftermath' && PATHS) rate('depsteam', 4, dt, () => {      // steaming fresh deposits
-    const p = PATHS[(R() * PATHS.length) | 0], o = pathPos(p, R() * p.len * 0.8, (R() - 0.5) * 120, _pp);
-    smoke.spawn(K_STEAM, o.x, heightAt(o.x, o.z) * exag + 15, o.z, 0, 6 + R() * 8, 0, 50, 40, 220, STEAM, 0.25);
-  });
-}
-
-let frameNo = 0;
-function updateSmoke(dt) {
-  const ds = dt * TS, sm = smoke, R = Math.random, v = vent(), Hn = 6800;
-  frameNo++;
-  for (let i = 0; i < sm.max; i++) {
-    if (sm.age[i] >= sm.life[i]) continue;
-    sm.age[i] += ds; const k = sm.kind[i];
-    if (k === K_DENSE) {
-      const p = PATHS && PATHS[sm.pid[i]]; if (!p) { sm.age[i] = 1e9; continue; }
-      const frac = sm.ps[i] / sm.pmax[i];
-      if (frac >= 1) { sm.age[i] = 1e9; continue; }
-      const vt = sm.pv[i] * Math.sqrt(Math.max(0.03, 1 - frac));
-      sm.ps[i] += vt * ds;
-      const w = 45 + 0.045 * sm.ps[i];
-      sm.pl[i] = clamp(sm.pl[i] + (R() - 0.5) * 8 * ds, -w, w);
-      const o = pathPos(p, sm.ps[i], sm.pl[i], _pp), g = heightAt(o.x, o.z) * exag;
-      sm.px[i] = o.x; sm.pz[i] = o.z; sm.py[i] = g + 10 + 6 * Math.sin(sm.age[i] * 0.9 + i);
-      sm.vx[i] = o.tx * vt; sm.vz[i] = o.tz * vt; sm.gy[i] = g;
-      sm.size[i] = sm.s0[i] * (1 + 0.8 * frac); sm.heat[i] = 0.55 * (1 - frac); sm.shade[i] = 0.8;
-      if (R() < ds * 0.045 * vt / 30)
-        smoke.spawn(K_CLOUD, o.x, g + 35, o.z, o.tx * vt * 0.45, 14 + R() * 14, o.tz * vt * 0.45, 60 + R() * 50, 80 + R() * 50, 500 + R() * 600, ASH, 0.62, 0.4 * (1 - frac));
-      if (R() < 0.35) depPaint(o.x, o.z, 3);
-    } else {
-      if (k === K_PLUME) {
-        const h = sm.py[i], above = h - sm.y0[i];
-        const w = 42 * (1 - smooth(Hn - 1800, Hn, h));
-        sm.vy[i] = w + (sm.vy[i] - w) * Math.exp(-0.22 * ds);
-        const dx = sm.px[i] - v.x, dz = sm.pz[i] - v.z, d = Math.hypot(dx, dz) + 1;
-        const umb = smooth(Hn - 1600, Hn - 200, h), wind = 1 + h / 2500;
-        const tvx = WIND.x * wind + dx / d * 24 * umb, tvz = WIND.z * wind + dz / d * 24 * umb;
-        sm.vx[i] += (tvx - sm.vx[i]) * 0.035 * ds; sm.vz[i] += (tvz - sm.vz[i]) * 0.035 * ds;
-        sm.size[i] = Math.min(2400, sm.s0[i] + 0.17 * Math.max(0, above) + sm.age[i] * 2.2);
-        const lt = smooth(200, 4200, above) * 0.85 + 0.15 * smooth(0, 200, sm.age[i]);
-        sm.cr[i] = mix(ASH_DARK[0], ASH_LIGHT[0], lt); sm.cg[i] = mix(ASH_DARK[1], ASH_LIGHT[1], lt); sm.cb[i] = mix(ASH_DARK[2], ASH_LIGHT[2], lt);
-        sm.heat[i] *= Math.exp(-0.9 * ds);
-        const side = (dx * sunH.x + dz * sunH.y) / d;
-        sm.shade[i] = clamp(0.6 + 0.4 * side * Math.min(1, d / (0.35 * sm.size[i] + 1)) - 0.25 * (1 - umb) * smooth(0, 300, d) * 0, 0.25, 1);
-      } else if (k === K_CLOUD) {
-        sm.vx[i] *= Math.exp(-0.25 * ds); sm.vz[i] *= Math.exp(-0.25 * ds); sm.vy[i] = mix(sm.vy[i], 9, 0.03 * ds);
-        sm.vx[i] += WIND.x * 0.01 * ds; sm.vz[i] += WIND.z * 0.01 * ds;
-        sm.size[i] = mix(sm.s0[i], sm.s1[i], Math.sqrt(Math.min(1, sm.age[i] / (sm.life[i] * 0.6))));
-        sm.heat[i] *= Math.exp(-0.4 * ds); sm.shade[i] = 0.85;
-      } else if (k === K_STEAM) {
-        sm.vx[i] += (WIND.x * 1.4 - sm.vx[i]) * 0.05 * ds; sm.vz[i] += (WIND.z * 1.4 - sm.vz[i]) * 0.05 * ds; sm.vy[i] *= Math.exp(-0.02 * ds);
-        sm.size[i] = mix(sm.s0[i], sm.s1[i], Math.sqrt(sm.age[i] / sm.life[i])); sm.shade[i] = 0.95;
-      } else {
-        sm.vx[i] *= Math.exp(-0.7 * ds); sm.vz[i] *= Math.exp(-0.7 * ds); sm.vy[i] *= Math.exp(-0.5 * ds);
-        sm.size[i] = mix(sm.s0[i], sm.s1[i], Math.sqrt(sm.age[i] / sm.life[i])); sm.shade[i] = 0.9;
-      }
-      sm.px[i] += sm.vx[i] * ds; sm.py[i] += sm.vy[i] * ds; sm.pz[i] += sm.vz[i] * ds;
-      if ((i + frameNo) % 4 === 0) sm.gy[i] = heightAt(sm.px[i], sm.pz[i]) * exag;
-      const floor = sm.gy[i] + sm.size[i] * 0.12; if (sm.py[i] < floor) sm.py[i] = floor;
-    }
-    sm.rot[i] += sm.rs[i] * dt;
-  }
-}
-function updateGlow(dt) {
-  const ds = dt * TS, gl = glow, R = Math.random;
-  for (let i = 0; i < gl.max; i++) {
-    if (gl.age[i] >= gl.life[i]) continue;
-    gl.age[i] += ds; const k = gl.kind[i];
-    if (k === 2) {
-      const p = PATHS && PATHS[gl.pid[i]]; if (!p) { gl.age[i] = 1e9; continue; }
-      const frac = gl.ps[i] / gl.pmax[i];
-      if (frac >= 1) { gl.kind[i] = 1; gl.life[i] = gl.age[i] + 20 + R() * 20; continue; }   // comes to rest and cools
-      const vt = gl.pv[i] * Math.sqrt(Math.max(0.03, 1 - frac));
-      gl.ps[i] += vt * ds; gl.pl[i] += (R() - 0.5) * 10 * ds;
-      const o = pathPos(p, gl.ps[i], gl.pl[i], _pp), g = heightAt(o.x, o.z) * exag;
-      gl.hop[i] += ds * (2 + vt / 12);
-      const hop = Math.abs(Math.sin(gl.hop[i])) * (4 + gl.size[i]);
-      gl.px[i] = o.x; gl.pz[i] = o.z; gl.py[i] = g + gl.size[i] * 0.5 + hop;
-      gl.vx[i] = o.tx * vt; gl.vz[i] = o.tz * vt; gl.vy[i] = Math.cos(gl.hop[i]) * 6;
-      gl.temp[i] -= ds * 0.004;
-    } else if (k === 0) {
-      gl.vy[i] -= 9.8 * ds;
-      gl.px[i] += gl.vx[i] * ds; gl.py[i] += gl.vy[i] * ds; gl.pz[i] += gl.vz[i] * ds;
-      const g = heightAt(gl.px[i], gl.pz[i]) * exag;
-      if (gl.py[i] < g) {
-        gl.py[i] = g; gl.kind[i] = 1; gl.vx[i] *= 0.3; gl.vz[i] *= 0.3; gl.vy[i] = 0; gl.temp[i] *= 0.8;
-        gl.life[i] = gl.age[i] + 25 + R() * 25;
-        if (R() < 0.6) smoke.spawn(K_DUST, gl.px[i], g + 10, gl.pz[i], (R() - .5) * 10, 6 + R() * 6, (R() - .5) * 10, 16 + R() * 8, 12 + gl.size[i] * 2, 50 + gl.size[i] * 10, DUST, 0.6);
-      }
-      gl.temp[i] -= ds * 0.003;
-    } else {
-      const [gx, gz] = gradAt(gl.px[i], gl.pz[i]);
-      gl.vx[i] += (-gx * 9.8 - gl.vx[i] * 0.6) * ds; gl.vz[i] += (-gz * 9.8 - gl.vz[i] * 0.6) * ds;
-      gl.px[i] += gl.vx[i] * ds; gl.pz[i] += gl.vz[i] * ds;
-      gl.py[i] = heightAt(gl.px[i], gl.pz[i]) * exag + gl.size[i] * 0.5; gl.vy[i] = 0;
-      const sp = Math.hypot(gl.vx[i], gl.vz[i]);
-      if (sp > 4 && R() < ds * 0.15) smoke.spawn(K_DUST, gl.px[i], gl.py[i] + 5, gl.pz[i], gl.vx[i] * 0.2, 4, gl.vz[i] * 0.2, 12, 8, 40, DUST, 0.45);
-      gl.temp[i] -= ds * 0.006;
-    }
-    if (gl.temp[i] <= 0) gl.age[i] = 1e9;
-  }
+  tDep.needsUpdate=true; tFallout.needsUpdate=true;
 }
 
 let slowT = 0, fastT = 0;
@@ -1858,17 +1716,17 @@ function adaptResolution(dt) {
   else if (fastT > 4 && pr < PR_MAX) { next = Math.min(PR_MAX, pr + 0.25); fastT = 0; }
   if (next !== pr) { pr = next; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); resize(); }
 }
-function frame(now) {
+const tabletop=createTabletop({renderer,camera,height:(x,z)=>heightAt(x,z)*exag,state:()=>({p:P,title:STAGES[S.phase][0],active:S.cw>.5}),setTime:p=>{goAnim=null;setPlaying(false);setP(p);},togglePlay,smoke,glow,cx:CX,cz:CZ});
+if(navigator.xr)navigator.xr.isSessionSupported('immersive-ar').then(ok=>{$('questMode').hidden=!ok;}).catch(()=>{});
+$('questMode').onclick=()=>tabletop.enter().catch(error=>{$('questMode').textContent='Could not start MR: '+error.message;});
+function frame(now, xrFrame) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  adaptResolution(dt);
-  U.uTime.value = now / 1000;
+  if(!tabletop.active)adaptResolution(dt);
   if (goAnim) stepGo(dt);
   if (playing) { const p0 = P; setP(P + dt * (P < P2 ? 0.02 : P < P3 ? 0.006 : 0.03)); if (P >= 1) setPlaying(false);
-    if (p0 < P2 && P >= P2 && camera.position.distanceTo(new THREE.Vector3(DOME.x, camera.position.y, DOME.z)) > 9000) eruptionView(); }
+    if (!tabletop.active && p0 < P2 && P >= P2 && camera.position.distanceTo(new THREE.Vector3(DOME.x, camera.position.y, DOME.z)) > 9000) eruptionView(); }
   if (P !== appliedP) apply(P);
 
-  if (!reduced) emit(dt);
-  updateSmoke(dt); updateGlow(dt); depUpdate(dt);
   // atmosphere
   fogCol.copy(fogClear).lerp(fogPaleo, smooth(0.02, 0.5, S.s));
   let fogD = LIGHT.fogD, sunI = LIGHT.I;
@@ -1877,6 +1735,7 @@ function frame(now) {
   scene.fog.color.copy(fogCol); scene.fog.density = fogD; sun.intensity = sunI;
   ghost.scale.y = exag;
 
+  if(tabletop.active){tabletop.update(xrFrame);renderer.render(tabletop.scene,camera);return;}
   const ground = updateCamera(dt);
   updateLOD();
   updateWindow(dt, camera.position.y - ground);
@@ -1884,17 +1743,17 @@ function frame(now) {
   const me = camera.matrixWorld.elements;
   EU.uCamR.value.set(me[0], me[1], me[2]); EU.uCamU.value.set(me[4], me[5], me[6]); EU.uCamB.value.set(me[8], me[9], me[10]);
   camera.getWorldDirection(camFwd);
-  EU.uFogCol.value.copy(scene.fog.color); EU.uFogD.value = scene.fog.density; EU.uTimeS.value = now / 1000;
+  EU.uFogCol.value.copy(scene.fog.color); EU.uFogD.value = scene.fog.density; // uTimeS is set from the event clock in renderEruption().
   EU.uSunCol.value.copy(sun.color).multiplyScalar(sun.intensity / Math.PI * 1.45);
   smoke.upload(camera.position); glow.upload();
   composer.render();
   updateLabels();
   updateNavUI(dt, ground);
-  requestAnimationFrame(frame);
+
 }
 apply(P);
-requestAnimationFrame(frame);
+renderer.setAnimationLoop(frame);
 requestAnimationFrame(() => $('loading').classList.add('done'));
-if (location.search.includes("debug")) window.__dbg = { D, ND, bil, HALF, SIZE, setLight, slotTile, slotA, updateWindow, groundAt, setMode, VIEWS, pickTerrain, camera, controls, U, heightAt, renderer, setP: p => { setPlaying(false); setP(p); }, smoke, glow, paths: () => PATHS, DOME, CX, CZ, eruptionView };
+if (location.search.includes("debug")) window.__dbg = { D, ND, bil, HALF, SIZE, setLight, slotTile, slotA, updateWindow, groundAt, setMode, VIEWS, pickTerrain, camera, controls, U, heightAt, renderer, setP: p => { setPlaying(false); setP(p); }, smoke, glow, paths: () => eruption.paths, DOME, CX, CZ, eruptionView };
 
 </script>
