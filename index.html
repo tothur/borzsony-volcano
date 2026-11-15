@@ -226,9 +226,20 @@ body:not(.show-labels) .label { display: none; }
 }
 @media (max-height: 560px) { .col { height: 44vh; } .title h1 { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* ---- quest MR launcher ---- */
+.quest-btn {
+  position: fixed; z-index: 5; top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+  height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(255, 122, 53, .45);
+  background: var(--glass-hi); color: var(--ink); font-size: 13.5px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 9px; white-space: nowrap;
+  transition: background .15s, border-color .15s, transform .15s var(--ease);
+}
+.quest-btn:hover { background: rgba(28, 34, 38, .94); border-color: var(--ember); }
+.quest-btn svg { width: 18px; height: 18px; color: var(--ember); flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 </style>
 
-<button id="questMode" type="button" style="position:fixed;z-index:5;top:16px;left:50%;padding:12px;border-radius:16px;background:#182326;color:white" hidden>Place on desk (Quest)</button>
+<button id="questMode" class="quest-btn glass" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg><span>Place on table · Quest MR</span></button>
 <style>body.in-xr > :not(#stage):not(script):not(style){visibility:hidden}body.in-xr .label{display:none}</style>
 <div id="stage" aria-label="3D view of the Börzsöny Mountains"></div>
 
@@ -280,7 +291,7 @@ body:not(.show-labels) .label { display: none; }
 <div class="pop" id="optsPop" hidden>
   <h2>Scene</h2>
   <div class="row"><span>Light</span><span class="seg2" role="group" aria-label="Light"><button id="lDay" type="button" aria-pressed="true">Day</button><button id="lDusk" type="button" aria-pressed="false">Dusk</button><button id="lNight" type="button" aria-pressed="false">Night</button></span></div>
-  <div class="row"><span>Relief</span><span class="seg2" role="group" aria-label="Vertical exaggeration"><button id="ex1" type="button" aria-pressed="true">1×</button><button id="ex2" type="button" aria-pressed="false">2×</button></span></div>
+  <div class="row"><span>Relief</span><span class="seg2" role="group" aria-label="Vertical exaggeration"><button id="ex1" type="button" aria-pressed="true">1×</button><button id="ex15" type="button" aria-pressed="false">1.5×</button><button id="ex2" type="button" aria-pressed="false">2×</button><button id="ex3" type="button" aria-pressed="false">3×</button></span></div>
   <h2>Overlays</h2>
   <button class="row" id="ghost" type="button" aria-pressed="false"><span>Outline of today's terrain</span><i class="switch" aria-hidden="true"></i></button>
   <button class="row" id="tLabels" type="button" aria-pressed="true"><span>Place names</span><i class="switch" aria-hidden="true"></i></button>
@@ -1109,8 +1120,8 @@ class Smoke {
   }
   clear() { this.age.fill(1e9); this.g.instanceCount = 0; }
   // sort far-to-near with a 1024-bucket counting sort and fill the instance buffers
-  upload(cam) {
-    const fx = camFwd.x, fy = camFwd.y, fz = camFwd.z, cx = cam.x, cy = cam.y, cz = cam.z;
+  upload(cam, fwd = camFwd) {
+    const fx = fwd.x, fy = fwd.y, fz = fwd.z, cx = cam.x, cy = cam.y, cz = cam.z;
     let n = 0, dmin = 1e9, dmax = -1e9;
     for (let i = 0; i < this.max; i++) {
       if (this.age[i] >= this.life[i]) continue;
@@ -1341,12 +1352,16 @@ addEventListener('keydown', e => {
   else if (e.code === 'BracketLeft') chapter(-1);
   else if (e.code === 'KeyP') togglePlay();
 });
-const exBtns = { ex1: 1, ex2: 2 };
-for (const [id, v] of Object.entries(exBtns)) $(id).addEventListener('click', () => {
-  controls.target.y *= v / exag; camera.position.y *= v / exag; exag = v; U.uExag.value = v;
-  for (const k of Object.keys(exBtns)) $(k).setAttribute('aria-pressed', String(k === id));
+const exBtns = { ex1: 1, ex15: 1.5, ex2: 2, ex3: 3 };
+function setExag(v) {
+  v = clamp(Math.round(v * 10) / 10, 1, 4);
+  if (v === exag) return;
+  controls.target.y *= v / exag; camera.position.y *= v / exag;
+  exag = v; U.uExag.value = v;
+  for (const [id, val] of Object.entries(exBtns)) $(id)?.setAttribute('aria-pressed', String(Math.abs(val - v) < 0.05));
   renderEruption();
-});
+}
+for (const [id, v] of Object.entries(exBtns)) $(id).addEventListener('click', () => setExag(v));
 // day / dusk / night: incandescence on a lava dome is mostly seen after dark
 const deg = THREE.MathUtils.degToRad;
 const LIGHT_MODES = {
@@ -1354,8 +1369,10 @@ const LIGHT_MODES = {
   dusk:  { el: 4, az: 250, skyEl: 2.5, col: 0xffa25a, I: 3.0, hemi: 0.42, hs: 0x9a8aa8, hg: 0x3a2c22, exp: 0.95, turb: 7, ray: 2.8, fog: 0xa08a84, fogP: 0x9c887c, ash: 0x564a44, fogD: 0.000018, sky: [0.25, 0.21, 0.25] },
   night: { el: 40, az: 140, skyEl: -12, col: 0x9db4ff, I: 0.8, hemi: 0.14, hs: 0x3a4a70, hg: 0x0a0a10, exp: 1.8, turb: 2, ray: 0.5, fog: 0x141a27, fogP: 0x141a27, ash: 0x15130f, fogD: 0.00002, sky: [0.03, 0.04, 0.07] },
 };
-let LIGHT = LIGHT_MODES.day;
+let LIGHT = LIGHT_MODES.day, lightMode = 'day';
 function setLight(m) {
+  if (!LIGHT_MODES[m]) return;
+  lightMode = m;
   LIGHT = LIGHT_MODES[m];
   sunDir.setFromSphericalCoords(1, deg(90 - LIGHT.el), deg(LIGHT.az));
   sky.material.uniforms.sunPosition.value.setFromSphericalCoords(1, deg(90 - LIGHT.skyEl), deg(m === 'night' ? 255 : LIGHT.az));
@@ -1716,9 +1733,60 @@ function adaptResolution(dt) {
   else if (fastT > 4 && pr < PR_MAX) { next = Math.min(PR_MAX, pr + 0.25); fastT = 0; }
   if (next !== pr) { pr = next; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); resize(); }
 }
-const tabletop=createTabletop({renderer,camera,height:(x,z)=>heightAt(x,z)*exag,state:()=>({p:P,title:STAGES[S.phase][0],active:S.cw>.5}),setTime:p=>{goAnim=null;setPlaying(false);setP(p);},togglePlay,smoke,glow,cx:CX,cz:CZ});
+const tabletop = createTabletop({
+  renderer,
+  camera,
+  height: (x, z) => heightAt(x, z) * exag,
+  uniforms: U,
+  euUniforms: EU,
+  commonGLSL: COMMON,
+  fragColorGLSL: FRAG_COLOR,
+  fragEmisGLSL: FRAG_EMIS,
+  smoke,
+  glow,
+  getEnvTexture: () => envRT.texture,
+  lightModes: LIGHT_MODES,
+  cx: CX,
+  cz: CZ,
+  dome: DOME,
+  span: 16000,
+  D,
+  ND,
+  SIZE,
+  bands: BANDS.map(b => ({
+    phase: b.phase, p0: b.p0, p1: b.p1, anchor: b.anchor,
+    name: BAND_STYLE[b.phase]?.name || b.phase,
+    c: BAND_STYLE[b.phase]?.c || '#777',
+    c2: BAND_STYLE[b.phase]?.c2 || BAND_STYLE[b.phase]?.c || '#777',
+  })),
+  state: () => ({
+    p: P,
+    phase: S.phase,
+    title: STAGES[S.phase][0],
+    subtitle: STAGES[S.phase][1],
+    timeText: $('time').textContent,
+    clockText: $('clock').textContent,
+    active: S.cw > 0.5,
+    erupting: ['dome', 'explosion', 'collapse', 'aftermath'].includes(S.phase),
+    exag,
+    playing,
+    light: lightMode,
+    ghost: ghost.visible,
+  }),
+  setTime: p => { goAnim = null; setPlaying(false); setP(p); },
+  goTo,
+  chapter,
+  togglePlay,
+  watchEruption: () => { goAnim = null; setP(P2); setPlaying(true); },
+  getExag: () => exag,
+  setExag,
+  getLight: () => lightMode,
+  setLight,
+  getGhost: () => ghost.visible,
+  setGhost: v => { ghost.visible = !!v; $('ghost').setAttribute('aria-pressed', String(ghost.visible)); },
+});
 if(navigator.xr)navigator.xr.isSessionSupported('immersive-ar').then(ok=>{$('questMode').hidden=!ok;}).catch(()=>{});
-$('questMode').onclick=()=>tabletop.enter().catch(error=>{$('questMode').textContent='Could not start MR: '+error.message;});
+$('questMode').onclick=()=>tabletop.enter().catch(error=>{const sp=$('questMode').querySelector('span');if(sp)sp.textContent='Could not start MR: '+error.message;});
 function frame(now, xrFrame) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if(!tabletop.active)adaptResolution(dt);
@@ -1735,7 +1803,7 @@ function frame(now, xrFrame) {
   scene.fog.color.copy(fogCol); scene.fog.density = fogD; sun.intensity = sunI;
   ghost.scale.y = exag;
 
-  if(tabletop.active){tabletop.update(xrFrame);renderer.render(tabletop.scene,camera);return;}
+  if(tabletop.active){tabletop.update(xrFrame,dt);renderer.render(tabletop.scene,camera);return;}
   const ground = updateCamera(dt);
   updateLOD();
   updateWindow(dt, camera.position.y - ground);
