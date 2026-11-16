@@ -587,11 +587,11 @@ export function createTabletop({
   scene.add(sun, sun.target);
   const sunDirWorld = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(60), THREE.MathUtils.degToRad(220));
 
-  // Warm pulsing volcanic vent glow inside the crater (cheap shadowless PointLight)
+  // Localized crater vent glow (decay=0 prevents Three.js PBR 1/d² blow-up at 0.65 m tabletop scale)
   const domeX = dome?.x ?? (cx + 90);
   const domeZ = dome?.z ?? (cz - 60);
-  const eruptionLight = new THREE.PointLight(0xff621f, 0, 1.8, 1.6);
-  eruptionLight.position.set(domeX, 1450, domeZ);
+  const eruptionLight = new THREE.PointLight(0xff4210, 0, 0.09, 0);
+  eruptionLight.position.set(domeX, 1380, domeZ);
   model.add(eruptionLight);
 
   const tableNormalMat = { value: new THREE.Matrix3() };
@@ -2332,10 +2332,11 @@ export function createTabletop({
       ghostMesh.scale.y = stNow.exag || 1;
     }
 
-    eruptionLight.position.y = 1420 * (stNow.exag || 1);
+    eruptionLight.position.y = 1360 * (stNow.exag || 1);
+    eruptionLight.distance = 0.095 * holder.scale.x;
     const hotGlow = (stNow.erupting ? 1 : 0) * (stNow.hot ?? (stNow.phase === 'explosion' ? 1 : 0.4));
-    const flicker = 0.84 + 0.16 * Math.sin(performance.now() * 0.011);
-    eruptionLight.intensity = hotGlow > 0.01 ? (3.5 + 7.5 * hotGlow) * flicker * (stNow.light === 'night' ? 1.6 : 1.0) : 0;
+    const flicker = 0.85 + 0.15 * Math.sin(performance.now() * 0.011);
+    eruptionLight.intensity = hotGlow > 0.01 ? (0.45 + 1.05 * hotGlow) * flicker * (stNow.light === 'night' ? 1.5 : 1.0) : 0;
 
     // CPU terrain fallback when GPU shaders aren't supplied
     if (terrainColors && (Math.abs(stNow.p - lastP) > 0.001 || lastP < 0)) {

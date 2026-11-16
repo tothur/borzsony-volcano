@@ -168,7 +168,7 @@ export function createEruption(g, terrain) {
     plume.push({
       birth: R() * 20, x: source.x + Math.cos(a) * r, z: source.z + Math.sin(a) * r, y: source.y + 18,
       profile: bk.profile, neutralT: bk.neutralT, angle: a, umbrella: 1.8 + R() * 2.1,
-      size: 52 + R() * 52, life: 420 + R() * 140, heatBias: 0.45, tint: i % 3 === 0 ? colors.warmAsh : colors.ash,
+      size: 52 + R() * 52, life: 420 + R() * 140, heatBias: 0.26, tint: i % 3 === 0 ? colors.warmAsh : colors.ash,
     });
   }
 
@@ -181,7 +181,7 @@ export function createEruption(g, terrain) {
     plume.push({
       birth, x: source.x + Math.cos(a) * r, z: source.z + Math.sin(a) * r, y: source.y + 15,
       profile: bk.profile, neutralT: bk.neutralT, angle: a, umbrella: 1.4 + R() * 1.9,
-      size: 46 + R() * 48, life: 360 + R() * 140, heatBias: 0.34 * pulse, tint: i % 4 === 0 ? colors.warmAsh : colors.ash,
+      size: 46 + R() * 48, life: 360 + R() * 140, heatBias: 0.18 * pulse, tint: i % 4 === 0 ? colors.warmAsh : colors.ash,
     });
   }
 
@@ -194,7 +194,7 @@ export function createEruption(g, terrain) {
     plume.push({
       birth, x: source.x + Math.cos(a) * r, z: source.z + Math.sin(a) * r, y: source.y + 10,
       profile: bk.profile, neutralT: bk.neutralT, angle: a, umbrella: 0.8 + R() * 1.1,
-      size: (38 + R() * 42) * (0.7 + 0.3 * taper), life: 260 + R() * 110, heatBias: 0.26 * taper, tint: colors.ash,
+      size: (38 + R() * 42) * (0.7 + 0.3 * taper), life: 260 + R() * 110, heatBias: 0.14 * taper, tint: colors.ash,
     });
   }
 
@@ -267,7 +267,7 @@ export function createEruption(g, terrain) {
       if (age <= 0 || age >= d.life) continue;
       const p = plumeAt(d, age);
       const fade = 1 - smooth(d.life * 0.28, d.life, age);
-      const heat = d.heatBias * Math.exp(-age / 14);
+      const heat = d.heatBias * Math.exp(-age / 6);
       puff(0, p.x, p.y, p.z, d.size + p.rise * 0.11 + Math.min(age, 220) * 1.25, 0.50 * fade, d.tint, age, d.life, heat, d.angle);
     }
     for (const b of bombs) {
@@ -281,7 +281,7 @@ export function createEruption(g, terrain) {
       if (age < 0 || age > path.duration + 135) continue;
       const p = pathAt(path, age, d.lateral), ground = surface(p.x, p.z), f = p.s / Math.max(1, path.length);
       if (age < path.duration) {
-        const flowHeat = Math.max(0.04, 0.28 * (1 - f * 0.85));
+        const flowHeat = Math.max(0.02, 0.14 * (1 - f * 0.85));
         puff(2, p.x, ground + 12, p.z, d.size * (1 + 0.78 * f), 0.72, colors.dark, Math.min(age, 4) + 2, path.duration + 20, flowHeat, d.seed);
         if (d.hot) glow.push({ x: p.x, y: ground + 3 + Math.abs(Math.sin(age * 3 + d.seed)) * 5, z: p.z, vx: p.vx, vy: 0, vz: p.vz, size: 2.8, temp: 0.52 * Math.exp(-age / 190) });
       }
@@ -292,7 +292,7 @@ export function createEruption(g, terrain) {
         const q = pathAt(path, release, d.lateral);
         const ci = Math.min(d.phoenix.length - 1, Math.floor(ca));
         const rise = d.phoenix[ci] * 0.65;
-        puff(1, q.x + g.wind.x * ca * 0.42, surface(q.x, q.z) + 26 + rise, q.z + g.wind.z * ca * 0.42, 46 + ca * 2.2, 0.23 * (1 - ca / 130), colors.ash, ca + 1, 132, Math.exp(-ca / 12) * 0.14, d.seed + j);
+        puff(1, q.x + g.wind.x * ca * 0.42, surface(q.x, q.z) + 26 + rise, q.z + g.wind.z * ca * 0.42, 46 + ca * 2.2, 0.23 * (1 - ca / 130), colors.ash, ca + 1, 132, Math.exp(-ca / 6) * 0.06, d.seed + j);
       }
     }
     for (const a of fallout) {
