@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-export const DOCK_W = 1440;
-export const DOCK_H = 272;
-export const DRAWER_W = 1280;
+export const DOCK_W = 1600;
+export const DOCK_H = 260;
+export const DRAWER_W = 1360;
 export const DRAWER_H = 420;
 
 // Backwards-compatible alias for layout width/height constants
@@ -23,26 +23,27 @@ export const STAGE_PILLS = [
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 export const DOCK_LAYOUT = [
-  { id: 'playPause', kind: 'button', x0: 28, y0: 52, x1: 148, y1: 220 },
-  { id: 'prevStage', kind: 'button', x0: 168, y0: 42, x1: 236, y1: 120 },
-  { id: 'nextStage', kind: 'button', x0: 840, y0: 42, x1: 908, y1: 120 },
-  { id: 'timeline', kind: 'slider', x0: 168, y0: 132, x1: 908, y1: 240, tx0: 190, tx1: 886 },
-  { id: 'drawerStages', kind: 'button', x0: 932, y0: 66, x1: 1110, y1: 206 },
-  { id: 'drawerView', kind: 'button', x0: 1126, y0: 66, x1: 1294, y1: 206 },
-  { id: 'placeAgain', kind: 'button', x0: 1310, y0: 66, x1: 1412, y1: 206 },
+  { id: 'playPause', kind: 'button', x0: 32, y0: 66, x1: 148, y1: 194 },
+  { id: 'prevStage', kind: 'button', x0: 168, y0: 44, x1: 230, y1: 108 },
+  { id: 'nextStage', kind: 'button', x0: 816, y0: 44, x1: 878, y1: 108 },
+  { id: 'timeline', kind: 'slider', x0: 168, y0: 128, x1: 878, y1: 220, tx0: 190, tx1: 856 },
+  { id: 'drawerStages', kind: 'button', x0: 912, y0: 70, x1: 1076, y1: 190 },
+  { id: 'drawerView', kind: 'button', x0: 1090, y0: 70, x1: 1244, y1: 190 },
+  { id: 'placeAgain', kind: 'button', x0: 1258, y0: 70, x1: 1358, y1: 190 },
+  { id: 'exitVR', kind: 'button', x0: 1372, y0: 70, x1: 1568, y1: 190 },
 ];
 
 export const DRAWER_STAGES_LAYOUT = (() => {
   const rects = [
-    { id: 'speed05', kind: 'button', x0: 540, y0: 28, x1: 626, y1: 96 },
-    { id: 'speed1', kind: 'button', x0: 636, y0: 28, x1: 722, y1: 96 },
-    { id: 'speed2', kind: 'button', x0: 732, y0: 28, x1: 818, y1: 96 },
-    { id: 'speed4', kind: 'button', x0: 828, y0: 28, x1: 914, y1: 96 },
-    { id: 'watchEruption', kind: 'button', x0: 938, y0: 26, x1: 1244, y1: 98 },
+    { id: 'speed05', kind: 'button', x0: 560, y0: 28, x1: 648, y1: 96 },
+    { id: 'speed1', kind: 'button', x0: 656, y0: 28, x1: 744, y1: 96 },
+    { id: 'speed2', kind: 'button', x0: 752, y0: 28, x1: 840, y1: 96 },
+    { id: 'speed4', kind: 'button', x0: 848, y0: 28, x1: 936, y1: 96 },
+    { id: 'watchEruption', kind: 'button', x0: 968, y0: 26, x1: 1320, y1: 98 },
   ];
   const cols = 4;
-  const xStart = 36;
-  const xEnd = 1244;
+  const xStart = 40;
+  const xEnd = 1320;
   const gapX = 18;
   const cellW = (xEnd - xStart - gapX * (cols - 1)) / cols;
   for (let i = 0; i < STAGE_PILLS.length; i++) {
@@ -65,25 +66,25 @@ export const DRAWER_STAGES_LAYOUT = (() => {
 
 export const DRAWER_VIEW_LAYOUT = [
   // Row 1: Size
-  { id: 'scaleSlider', kind: 'slider', x0: 196, y0: 34, x1: 814, y1: 114, tx0: 218, tx1: 792 },
-  { id: 'scale05', kind: 'button', x0: 834, y0: 38, x1: 960, y1: 110 },
-  { id: 'scale10', kind: 'button', x0: 974, y0: 38, x1: 1100, y1: 110 },
-  { id: 'scale20', kind: 'button', x0: 1114, y0: 38, x1: 1244, y1: 110 },
+  { id: 'scaleSlider', kind: 'slider', x0: 210, y0: 34, x1: 874, y1: 112, tx0: 228, tx1: 856 },
+  { id: 'scale05', kind: 'button', x0: 896, y0: 38, x1: 1026, y1: 108 },
+  { id: 'scale10', kind: 'button', x0: 1038, y0: 38, x1: 1168, y1: 108 },
+  { id: 'scale20', kind: 'button', x0: 1180, y0: 38, x1: 1320, y1: 108 },
   // Row 2: Rotation
-  { id: 'rotSlider', kind: 'slider', x0: 196, y0: 132, x1: 1068, y1: 212, tx0: 218, tx1: 1046 },
-  { id: 'rotNorth', kind: 'button', x0: 1090, y0: 136, x1: 1244, y1: 208 },
+  { id: 'rotSlider', kind: 'slider', x0: 210, y0: 132, x1: 1132, y1: 210, tx0: 228, tx1: 1114 },
+  { id: 'rotNorth', kind: 'button', x0: 1154, y0: 136, x1: 1320, y1: 206 },
   // Row 3: Exaggeration
-  { id: 'exagSlider', kind: 'slider', x0: 196, y0: 230, x1: 734, y1: 310, tx0: 218, tx1: 712 },
-  { id: 'exag1', kind: 'button', x0: 754, y0: 234, x1: 866, y1: 306 },
-  { id: 'exag15', kind: 'button', x0: 880, y0: 234, x1: 992, y1: 306 },
-  { id: 'exag2', kind: 'button', x0: 1006, y0: 234, x1: 1118, y1: 306 },
-  { id: 'exag3', kind: 'button', x0: 1132, y0: 234, x1: 1244, y1: 306 },
+  { id: 'exagSlider', kind: 'slider', x0: 210, y0: 230, x1: 794, y1: 308, tx0: 228, tx1: 776 },
+  { id: 'exag1', kind: 'button', x0: 816, y0: 234, x1: 930, y1: 304 },
+  { id: 'exag15', kind: 'button', x0: 942, y0: 234, x1: 1056, y1: 304 },
+  { id: 'exag2', kind: 'button', x0: 1068, y0: 234, x1: 1182, y1: 304 },
+  { id: 'exag3', kind: 'button', x0: 1194, y0: 234, x1: 1320, y1: 304 },
   // Row 4: Light & Overlays
-  { id: 'lightDay', kind: 'button', x0: 36, y0: 330, x1: 194, y1: 396 },
-  { id: 'lightDusk', kind: 'button', x0: 208, y0: 330, x1: 366, y1: 396 },
-  { id: 'lightNight', kind: 'button', x0: 380, y0: 330, x1: 538, y1: 396 },
-  { id: 'toggleGhost', kind: 'button', x0: 564, y0: 330, x1: 980, y1: 396 },
-  { id: 'resetView', kind: 'button', x0: 1004, y0: 330, x1: 1244, y1: 396 },
+  { id: 'lightDay', kind: 'button', x0: 40, y0: 330, x1: 204, y1: 396 },
+  { id: 'lightDusk', kind: 'button', x0: 216, y0: 330, x1: 380, y1: 396 },
+  { id: 'lightNight', kind: 'button', x0: 392, y0: 330, x1: 556, y1: 396 },
+  { id: 'toggleGhost', kind: 'button', x0: 580, y0: 330, x1: 1040, y1: 396 },
+  { id: 'resetView', kind: 'button', x0: 1064, y0: 330, x1: 1320, y1: 396 },
 ];
 
 export const PANEL_LAYOUT = DOCK_LAYOUT;
@@ -270,32 +271,33 @@ function createTurntableTexture() {
   const cy = S / 2;
   ctx.clearRect(0, 0, S, S);
 
+  // Whisper-thin frosted glass orbital ring
   ctx.beginPath();
-  ctx.arc(cx, cy, S * 0.488, 0, Math.PI * 2);
-  ctx.arc(cx, cy, S * 0.454, 0, Math.PI * 2, true);
-  ctx.fillStyle = 'rgba(16, 20, 24, 0.72)';
+  ctx.arc(cx, cy, S * 0.484, 0, Math.PI * 2);
+  ctx.arc(cx, cy, S * 0.460, 0, Math.PI * 2, true);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
   ctx.fill();
 
   for (let deg = 0; deg < 360; deg += 5) {
     const rad = (deg - 90) * Math.PI / 180;
     const major = deg % 45 === 0;
     const mid = deg % 15 === 0;
-    const r0 = S * (major ? 0.457 : mid ? 0.463 : 0.468);
+    const r0 = S * (major ? 0.463 : mid ? 0.467 : 0.471);
     const r1 = S * 0.476;
-    ctx.strokeStyle = deg === 0 ? '#ff7a35' : major ? 'rgba(243,241,234,0.68)' : 'rgba(243,241,234,0.22)';
-    ctx.lineWidth = deg === 0 ? 5 : major ? 2.5 : 1.2;
+    ctx.strokeStyle = deg === 0 ? 'rgba(255,255,255,0.95)' : major ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = deg === 0 ? 4 : major ? 2 : 1;
     ctx.beginPath();
     ctx.moveTo(cx + Math.cos(rad) * r0, cy + Math.sin(rad) * r0);
     ctx.lineTo(cx + Math.cos(rad) * r1, cy + Math.sin(rad) * r1);
     ctx.stroke();
   }
 
-  ctx.font = '700 22px system-ui, sans-serif';
+  ctx.font = '600 20px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const [deg, lbl, col] of [[0, 'N', '#ff7a35'], [90, 'E', 'rgba(243,241,234,0.72)'], [180, 'S', 'rgba(243,241,234,0.72)'], [270, 'W', 'rgba(243,241,234,0.72)']]) {
+  for (const [deg, lbl, col] of [[0, 'N', '#ffffff'], [90, 'E', 'rgba(255,255,255,0.62)'], [180, 'S', 'rgba(255,255,255,0.62)'], [270, 'W', 'rgba(255,255,255,0.62)']]) {
     const rad = (deg - 90) * Math.PI / 180;
-    const r = S * 0.483;
+    const r = S * 0.482;
     ctx.save();
     ctx.translate(cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
     ctx.rotate(rad + Math.PI / 2);
@@ -528,6 +530,13 @@ function drawIcon(g, name, cx, cy, s, col = '#f3f1ea') {
     g.moveTo(-s * 0.56, -s * 0.16);
     g.lineTo(-s * 0.36, -s * 0.48);
     g.lineTo(-s * 0.12, -s * 0.18);
+    g.stroke();
+  } else if (name === 'exit') {
+    g.beginPath();
+    g.moveTo(-s * 0.38, -s * 0.38);
+    g.lineTo(s * 0.38, s * 0.38);
+    g.moveTo(s * 0.38, -s * 0.38);
+    g.lineTo(-s * 0.38, s * 0.38);
     g.stroke();
   }
   g.restore();
@@ -892,51 +901,59 @@ export function createTabletop({
   // Circular compass turntable ring around the base (inside holder)
   const turntableTex = createTurntableTexture();
   const turntableRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.466, 0.504, 80).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ map: turntableTex, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.RingGeometry(0.466, 0.500, 80).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ map: turntableTex, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }),
   );
   turntableRing.position.y = 0.002;
   holder.add(turntableRing);
 
   const ringHitMesh = new THREE.Mesh(
-    new THREE.RingGeometry(0.435, 0.545, 48).rotateX(-Math.PI / 2),
+    new THREE.RingGeometry(0.430, 0.550, 48).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }),
   );
   ringHitMesh.position.y = 0.004;
   holder.add(ringHitMesh);
 
-  // Direct 3D Spatial Corner Brackets (grab & drag any corner directly in 3D space to resize)
+  // Fast 12-triangle bounding proxy for direct 1-hand / 2-hand model manipulation (pinch or trigger on volcano/plinth)
+  const modelHitBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.66, 0.24, 0.66),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  modelHitBox.position.y = 0.065;
+  holder.add(modelHitBox);
+
+  // Minimalist visionOS frosted-pearl corner handles (resize + rotate with 1 or 2 hands)
   const cornerHandles = [];
   const cornerHitMeshes = [];
   const cornerCoords = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
-  const cornerOffset = 0.354;
+  const cornerOffset = 0.352;
   for (const [sx, sz] of cornerCoords) {
     const group = new THREE.Group();
-    group.position.set(sx * cornerOffset, 0.014, sz * cornerOffset);
+    group.position.set(sx * cornerOffset, 0.012, sz * cornerOffset);
 
-    const armMat = new THREE.MeshBasicMaterial({ color: 0x9ed8ff, transparent: true, opacity: 0.72 });
-    const armLen = 0.044;
-    const armX = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.0045, 0.005), armMat);
-    armX.position.set(-sx * (armLen * 0.5 - 0.0025), -0.004, 0);
-    const armZ = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.0045, armLen), armMat);
-    armZ.position.set(0, -0.004, -sz * (armLen * 0.5 - 0.0025));
+    const armMat = new THREE.MeshBasicMaterial({ color: 0xf5f7fa, transparent: true, opacity: 0.32 });
+    const armLen = 0.042;
+    const armX = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.0035, 0.004), armMat);
+    armX.position.set(-sx * (armLen * 0.5 - 0.002), -0.004, 0);
+    const armZ = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.0035, armLen), armMat);
+    armZ.position.set(0, -0.004, -sz * (armLen * 0.5 - 0.002));
     group.add(armX, armZ);
 
     const orb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.011, 16, 12),
-      new THREE.MeshBasicMaterial({ color: 0xbfd9e6 }),
+      new THREE.SphereGeometry(0.009, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65 }),
     );
     group.add(orb);
 
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.016, 0.022, 24).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0xbfd9e6, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
+      new THREE.RingGeometry(0.014, 0.019, 24).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, side: THREE.DoubleSide }),
     );
-    ring.position.y = -0.006;
+    ring.position.y = -0.005;
     group.add(ring);
 
     const hitSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.048, 10, 10),
+      new THREE.SphereGeometry(0.055, 10, 10),
       new THREE.MeshBasicMaterial({ visible: false }),
     );
     group.add(hitSphere);
@@ -947,15 +964,15 @@ export function createTabletop({
     cornerHitMeshes.push(hitSphere);
   }
 
-  // Live floating resize / rotation badge shown while hovering or dragging 3D handles
+  // Minimalist visionOS glass floating pill badge shown while manipulating the 3D model
   const badgeCanvas = document.createElement('canvas');
-  badgeCanvas.width = 280;
+  badgeCanvas.width = 320;
   badgeCanvas.height = 76;
   const badgeCtx = badgeCanvas.getContext('2d');
   const badgeTex = new THREE.CanvasTexture(badgeCanvas);
   badgeTex.colorSpace = THREE.SRGBColorSpace;
   const resizeBadge = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.155, 0.042),
+    new THREE.PlaneGeometry(0.165, 0.039),
     new THREE.MeshBasicMaterial({ map: badgeTex, transparent: true, depthTest: false, side: THREE.DoubleSide }),
   );
   resizeBadge.visible = false;
@@ -966,49 +983,49 @@ export function createTabletop({
   function updateBadge(mesh, text, worldPos) {
     if (text !== lastBadgeText) {
       lastBadgeText = text;
-      badgeCtx.clearRect(0, 0, 280, 76);
-      rrect(badgeCtx, 4, 4, 272, 68, 34);
-      badgeCtx.fillStyle = 'rgba(13, 17, 22, 0.92)';
+      badgeCtx.clearRect(0, 0, 320, 76);
+      rrect(badgeCtx, 4, 4, 312, 68, 34);
+      badgeCtx.fillStyle = 'rgba(28, 30, 36, 0.86)';
       badgeCtx.fill();
-      badgeCtx.strokeStyle = '#ff8a47';
-      badgeCtx.lineWidth = 3;
+      badgeCtx.strokeStyle = 'rgba(255, 255, 255, 0.36)';
+      badgeCtx.lineWidth = 2;
       badgeCtx.stroke();
-      badgeCtx.fillStyle = '#f5f3ed';
-      badgeCtx.font = '600 25px "Geist Mono", monospace';
+      badgeCtx.fillStyle = '#ffffff';
+      badgeCtx.font = '500 24px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
       badgeCtx.textAlign = 'center';
       badgeCtx.textBaseline = 'middle';
-      badgeCtx.fillText(text, 140, 39);
+      badgeCtx.fillText(text, 160, 39);
       badgeTex.needsUpdate = true;
     }
     mesh.position.copy(worldPos);
     mesh.visible = true;
   }
 
-  // Direct 3D Vertical Relief Exaggeration Handle floating beside the right flank
+  // Subtle vertical relief rail (only shown when View sheet is open or directly hovered)
   const reliefRoot = new THREE.Group();
   reliefRoot.visible = false;
   scene.add(reliefRoot);
 
   const reliefHeight = 0.18;
   const reliefRail = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.0024, 0.0024, reliefHeight, 10),
-    new THREE.MeshBasicMaterial({ color: 0xbfd9e6, transparent: true, opacity: 0.45 }),
+    new THREE.CylinderGeometry(0.002, 0.002, reliefHeight, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.30 }),
   );
   reliefRail.position.y = reliefHeight * 0.5;
   reliefRoot.add(reliefRail);
 
   for (const frac of [0, 1 / 6, 1 / 3, 2 / 3, 1]) {
     const pip = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0055, 0.0055, 0.002, 12),
-      new THREE.MeshBasicMaterial({ color: 0xf3f1ea, transparent: true, opacity: 0.52 }),
+      new THREE.CylinderGeometry(0.0045, 0.0045, 0.0018, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.42 }),
     );
     pip.position.y = frac * reliefHeight;
     reliefRoot.add(pip);
   }
 
   const reliefOrb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.0145, 16, 14),
-    new THREE.MeshBasicMaterial({ color: 0xff7a35 }),
+    new THREE.SphereGeometry(0.012, 16, 14),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
   );
   reliefRoot.add(reliefOrb);
 
@@ -1026,26 +1043,26 @@ export function createTabletop({
   const reliefLblTex = new THREE.CanvasTexture(reliefLblCanvas);
   reliefLblTex.colorSpace = THREE.SRGBColorSpace;
   const reliefLblMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.115, 0.036),
+    new THREE.PlaneGeometry(0.11, 0.034),
     new THREE.MeshBasicMaterial({ map: reliefLblTex, transparent: true, side: THREE.DoubleSide }),
   );
-  reliefLblMesh.position.set(0.075, 0, 0);
+  reliefLblMesh.position.set(0.072, 0, 0);
   reliefOrb.add(reliefLblMesh);
   let lastReliefLbl = '';
 
   function updateReliefLabel(ex) {
-    const txt = `RELIEF ${ex.toFixed(1)}×`;
+    const txt = `Relief ${ex.toFixed(1)}×`;
     if (txt === lastReliefLbl) return;
     lastReliefLbl = txt;
     reliefLblCtx.clearRect(0, 0, 220, 68);
     rrect(reliefLblCtx, 4, 4, 212, 60, 30);
-    reliefLblCtx.fillStyle = 'rgba(14, 18, 22, 0.88)';
+    reliefLblCtx.fillStyle = 'rgba(28, 30, 36, 0.84)';
     reliefLblCtx.fill();
-    reliefLblCtx.strokeStyle = 'rgba(243, 241, 234, 0.28)';
-    reliefLblCtx.lineWidth = 2.5;
+    reliefLblCtx.strokeStyle = 'rgba(255, 255, 255, 0.30)';
+    reliefLblCtx.lineWidth = 2;
     reliefLblCtx.stroke();
-    reliefLblCtx.fillStyle = '#f3f1ea';
-    reliefLblCtx.font = '600 24px "Geist Mono", monospace';
+    reliefLblCtx.fillStyle = '#ffffff';
+    reliefLblCtx.font = '500 23px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
     reliefLblCtx.textAlign = 'center';
     reliefLblCtx.textBaseline = 'middle';
     reliefLblCtx.fillText(txt, 110, 35);
@@ -1106,32 +1123,43 @@ export function createTabletop({
     model.add(glowMesh);
   }
 
-  // Placement reticle with footprint
+  // Placement reticle with clean visionOS pearl rings
   const reticle = new THREE.Group();
   reticle.visible = false;
   const rInner = new THREE.Mesh(
-    new THREE.RingGeometry(0.026, 0.035, 48).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xff7a35, side: THREE.DoubleSide }),
+    new THREE.RingGeometry(0.022, 0.030, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
   );
   const rOuter = new THREE.Mesh(
-    new THREE.RingGeometry(0.32, 0.326, 64).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0x6cffab, transparent: true, opacity: 0.42, side: THREE.DoubleSide }),
+    new THREE.RingGeometry(0.32, 0.325, 64).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.40, side: THREE.DoubleSide }),
   );
   reticle.add(rInner, rOuter);
   scene.add(reticle);
 
-  // Fluid Spatial Glass Capsule Dock + Adaptive Depth-Layered Drawers + 90 Hz Timeline Playhead
+  // Near-field bare-hand pinch indicator spheres (for WebXR hand tracking)
+  const handPinchOrbs = [0, 1].map(() => {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.008, 14, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 }),
+    );
+    m.visible = false;
+    scene.add(m);
+    return m;
+  });
+
+  // Apple visionOS Spatial Control Bar + Floating Sheet + 90 Hz Pearl Playhead
   const uiRoot = new THREE.Group();
   uiRoot.visible = false;
   scene.add(uiRoot);
 
   const dockPivot = new THREE.Group();
-  dockPivot.rotation.x = -0.50;
+  dockPivot.rotation.x = -0.46;
   uiRoot.add(dockPivot);
 
-  const dockPhysW = 0.48;
+  const dockPhysW = 0.52;
   const dockPhysH = dockPhysW * (DOCK_H / DOCK_W);
-  const dockRadius = dockPhysH * 0.46;
+  const dockRadius = dockPhysH * 0.48;
   const dockCanvas = document.createElement('canvas');
   dockCanvas.width = DOCK_W;
   dockCanvas.height = DOCK_H;
@@ -1142,14 +1170,14 @@ export function createTabletop({
 
   const dockGlassBack = new THREE.Mesh(
     createRoundedPanelGeometry(dockPhysW + 0.008, dockPhysH + 0.008, dockRadius + 0.004),
-    new THREE.MeshBasicMaterial({ color: 0x0a0e14, transparent: true, opacity: 0.56, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x08090c, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false }),
   );
   dockGlassBack.position.z = -0.0045;
   dockPivot.add(dockGlassBack);
 
   const dockRimLine = new THREE.LineLoop(
-    createRoundedBorderGeometry(dockPhysW + 0.003, dockPhysH + 0.003, dockRadius + 0.0015),
-    new THREE.LineBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.36 }),
+    createRoundedBorderGeometry(dockPhysW + 0.002, dockPhysH + 0.002, dockRadius + 0.001),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28 }),
   );
   dockRimLine.position.z = 0.0012;
   dockPivot.add(dockRimLine);
@@ -1160,34 +1188,34 @@ export function createTabletop({
   );
   dockPivot.add(dockMesh);
 
-  // Separate 90 Hz 3D playhead orb on dockPivot -> zero CanvasTexture re-upload while scrubbing/playing!
+  // Separate 90 Hz 3D pearl-white playhead sphere on dockPivot
   const timelinePlayhead = new THREE.Group();
   const playheadCore = new THREE.Mesh(
-    new THREE.SphereGeometry(0.0075, 16, 12),
-    new THREE.MeshBasicMaterial({ color: 0xff853d }),
+    new THREE.SphereGeometry(0.0068, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
   );
-  playheadCore.scale.set(1, 1, 0.45);
+  playheadCore.scale.set(1, 1, 0.48);
   const playheadHalo = new THREE.Mesh(
-    new THREE.RingGeometry(0.0078, 0.0108, 28),
-    new THREE.MeshBasicMaterial({ color: 0xf5f3ed, side: THREE.DoubleSide }),
+    new THREE.RingGeometry(0.0072, 0.0102, 28),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, side: THREE.DoubleSide }),
   );
   timelinePlayhead.add(playheadCore, playheadHalo);
   timelinePlayhead.position.z = 0.0035;
   dockPivot.add(timelinePlayhead);
 
-  // visionOS-style floating grab bar beneath the capsule dock to pull/adjust height & distance
+  // visionOS bottom window grab bar beneath the control bar
   const dockGrabPill = new THREE.Mesh(
-    createRoundedPanelGeometry(0.135, 0.009, 0.0045),
-    new THREE.MeshBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.45, side: THREE.DoubleSide }),
+    createRoundedPanelGeometry(0.135, 0.008, 0.004),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.42, side: THREE.DoubleSide }),
   );
-  dockGrabPill.position.set(0, -dockPhysH * 0.5 - 0.020, 0.002);
+  dockGrabPill.position.set(0, -dockPhysH * 0.5 - 0.018, 0.002);
   dockPivot.add(dockGrabPill);
 
   const dockGrabHitMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.18, 0.042),
+    new THREE.PlaneGeometry(0.19, 0.044),
     new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }),
   );
-  dockGrabHitMesh.position.set(0, -dockPhysH * 0.5 - 0.020, 0.002);
+  dockGrabHitMesh.position.set(0, -dockPhysH * 0.5 - 0.018, 0.002);
   dockPivot.add(dockGrabHitMesh);
 
   const drawerPivot = new THREE.Group();
@@ -1195,7 +1223,7 @@ export function createTabletop({
   drawerPivot.visible = false;
   dockPivot.add(drawerPivot);
 
-  const drawerPhysW = 0.46;
+  const drawerPhysW = 0.48;
   const drawerPhysH = drawerPhysW * (DRAWER_H / DRAWER_W);
   const drawerCanvas = document.createElement('canvas');
   drawerCanvas.width = DRAWER_W;
@@ -1207,14 +1235,14 @@ export function createTabletop({
 
   const drawerGlassBack = new THREE.Mesh(
     createRoundedPanelGeometry(drawerPhysW + 0.008, drawerPhysH + 0.008, 0.032),
-    new THREE.MeshBasicMaterial({ color: 0x0a0e14, transparent: true, opacity: 0.56, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x08090c, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false }),
   );
   drawerGlassBack.position.z = -0.0045;
   drawerPivot.add(drawerGlassBack);
 
   const drawerRimLine = new THREE.LineLoop(
-    createRoundedBorderGeometry(drawerPhysW + 0.003, drawerPhysH + 0.003, 0.0295),
-    new THREE.LineBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.34 }),
+    createRoundedBorderGeometry(drawerPhysW + 0.002, drawerPhysH + 0.002, 0.029),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.26 }),
   );
   drawerRimLine.position.z = 0.0012;
   drawerPivot.add(drawerRimLine);
@@ -1227,12 +1255,12 @@ export function createTabletop({
 
   const cursorDot = new THREE.Group();
   const cursorCore = new THREE.Mesh(
-    new THREE.CircleGeometry(0.0036, 16),
-    new THREE.MeshBasicMaterial({ color: 0xff8a3d, side: THREE.DoubleSide }),
+    new THREE.CircleGeometry(0.0034, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
   );
   const cursorRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.0054, 0.0074, 24),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, side: THREE.DoubleSide }),
+    new THREE.RingGeometry(0.0052, 0.0070, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
   );
   cursorDot.add(cursorCore, cursorRing);
   cursorDot.visible = false;
@@ -1256,6 +1284,8 @@ export function createTabletop({
   const _up = new THREE.Vector3(0, 1, 0);
   const _rotMat4 = new THREE.Matrix4();
   const _lastSmokeFwd = new THREE.Vector3();
+  const _p0 = new THREE.Vector3();
+  const _p1 = new THREE.Vector3();
 
   let savedCamera = null;
   let session = null;
@@ -1282,18 +1312,24 @@ export function createTabletop({
   let drawerAnim = 0;
   let activeSlider = null; // { controller, surface: 'dock'|'drawer', id }
   let ringDrag = null;     // { controller, startAngle, startYaw }
-  let cornerDrag = null;   // { controller, cornerIndex, startDist, startScale }
+  let cornerDrag = null;   // { controller, cornerIndex, startDist, startScale, startAngle, startYaw }
+  let modelPanDrag = null; // { controller, startHit, startPos }
   let reliefDrag = null;   // { controller }
-  let dockDrag = null;     // { controller, startY, startDist, baseY, baseDist }
+  let dockDrag = null;     // { controller, startRayDist, startPoint, startYOff, startDistOff }
   let hoverDockId = null;
   let hoverDrawerId = null;
   let hoverCorner = -1;
   let hoverRelief = false;
   let hoverRing = false;
+  let hoverModel = false;
   let hoverGrabBar = false;
   let prevHoverSig = '';
   let lastScrubPhase = '';
   const lastButtons = new Map();
+  const handPinchState = [
+    { pinching: false, pos: new THREE.Vector3() },
+    { pinching: false, pos: new THREE.Vector3() },
+  ];
 
   function pulseHaptic(controller, intensity = 0.25, duration = 14) {
     try {
@@ -1321,7 +1357,10 @@ export function createTabletop({
   function handleAction(id, controller = null) {
     const st = state();
     pulseHaptic(controller, 0.42, 18);
-    if (id === 'playPause') {
+    if (id === 'exitVR') {
+      session?.end?.().catch(() => {});
+      return;
+    } else if (id === 'playPause') {
       togglePlay();
     } else if (id === 'prevStage') {
       chapter?.(-1);
@@ -1363,6 +1402,7 @@ export function createTabletop({
       activeSlider = null;
       ringDrag = null;
       cornerDrag = null;
+      modelPanDrag = null;
       reliefDrag = null;
       dockDrag = null;
       anchor?.delete?.();
@@ -1426,7 +1466,7 @@ export function createTabletop({
     scene.add(c);
     controllers.push(c);
 
-    const lineMat = new THREE.LineBasicMaterial({ color: 0xa6ffe0, transparent: true, opacity: 0.52 });
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.32 });
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -2.0)]),
       lineMat,
@@ -1435,8 +1475,8 @@ export function createTabletop({
     c.add(line);
 
     const tip = new THREE.Mesh(
-      new THREE.SphereGeometry(0.004, 10, 10),
-      new THREE.MeshBasicMaterial({ color: 0xa6ffe0 }),
+      new THREE.SphereGeometry(0.0035, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }),
     );
     c.userData.tipMat = tip.material;
     c.add(tip);
@@ -1452,7 +1492,6 @@ export function createTabletop({
         holder.scale.setScalar(1);
         holder.visible = true;
         uiRoot.visible = true;
-        reliefRoot.visible = true;
         placed = true;
         reticle.visible = false;
         lastDockKey = '';
@@ -1484,7 +1523,7 @@ export function createTabletop({
         }
       }
 
-      // 2. Capsule dock hit
+      // 2. Control bar dock hit
       const dockHit = raycaster.intersectObject(dockMesh)[0];
       if (dockHit?.uv) {
         const hit = hitTestSurface(DOCK_LAYOUT, DOCK_W, DOCK_H, dockHit.uv.x, dockHit.uv.y);
@@ -1503,7 +1542,7 @@ export function createTabletop({
         }
       }
 
-      // 3. Dock floating spatial grab pill
+      // 3. Window grab bar beneath dock
       const grabHit = raycaster.intersectObject(dockGrabHitMesh)[0];
       if (grabHit) {
         dockDrag = {
@@ -1517,37 +1556,79 @@ export function createTabletop({
         return;
       }
 
-      // 4. Direct 3D vertical relief handle
-      const relHit = raycaster.intersectObject(reliefHitMesh)[0];
-      if (relHit) {
-        reliefDrag = { controller: c };
-        pulseHaptic(c, 0.3, 16);
+      // 4. Vertical relief handle (when visible)
+      if (reliefRoot.visible) {
+        const relHit = raycaster.intersectObject(reliefHitMesh)[0];
+        if (relHit) {
+          reliefDrag = { controller: c };
+          pulseHaptic(c, 0.3, 16);
+          return;
+        }
+      }
+
+      // If the other hand/controller is ALREADY manipulating the model, pinching/clicking joins 2-hand zoom/rotate/move!
+      const other = controllers[1 - i];
+      if (other && (other.userData.grab || other.userData.modelSelect)) {
+        c.userData.modelSelect = true;
+        two = null;
+        ringDrag = null;
+        cornerDrag = null;
+        modelPanDrag = null;
+        pulseHaptic(c, 0.35, 16);
         return;
       }
 
-      // 5. Direct 3D spatial corner resize brackets
+      // 5. Direct 3D corner handles (1-hand radial resize + rotation, or 2-hand zoom)
       const cHit = raycaster.intersectObjects(cornerHitMeshes, false)[0];
       if (cHit) {
+        c.userData.modelSelect = true;
         _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
-        const startDist = raycaster.ray.intersectPlane(_plane, _hitW)
-          ? Math.max(0.08, Math.hypot(_hitW.x - holder.position.x, _hitW.z - holder.position.z))
-          : 0.49 * holder.scale.x;
+        const hasPlane = raycaster.ray.intersectPlane(_plane, _hitW);
+        const dx = (hasPlane ? _hitW.x : cHit.point.x) - holder.position.x;
+        const dz = (hasPlane ? _hitW.z : cHit.point.z) - holder.position.z;
         cornerDrag = {
           controller: c,
           cornerIndex: cHit.object.userData.cornerIndex,
-          startDist,
+          startDist: Math.max(0.06, Math.hypot(dx, dz)),
           startScale: holder.scale.x,
+          startAngle: Math.atan2(dx, dz),
+          startYaw: holder.rotation.y,
         };
         pulseHaptic(c, 0.32, 16);
         return;
       }
 
-      // 6. Direct 3D turntable ring
+      // 6. Direct turntable ring or direct volcano model manipulation (hands & controllers)
       const ringHit = raycaster.intersectObject(ringHitMesh)[0];
-      if (ringHit) {
-        const dx = ringHit.point.x - holder.position.x;
-        const dz = ringHit.point.z - holder.position.z;
-        ringDrag = { controller: c, startAngle: Math.atan2(dx, dz), startYaw: holder.rotation.y };
+      const modelHit = ringHit || raycaster.intersectObject(modelHitBox)[0];
+      if (modelHit) {
+        c.userData.modelSelect = true;
+        _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
+        const hasPlane = raycaster.ray.intersectPlane(_plane, _hitW);
+        const pt = hasPlane ? _hitW : modelHit.point;
+        const dx = pt.x - holder.position.x;
+        const dz = pt.z - holder.position.z;
+        const radial = Math.hypot(dx, dz);
+        // Clicking/pinching near the outer corners/edge (> 42% of model span) also scales + rotates;
+        // clicking/pinching the lower plinth edge slides/pans; clicking the cone rotates smoothly.
+        if (!ringHit && modelHit.point.y < holder.position.y + 0.022 * holder.scale.x) {
+          modelPanDrag = {
+            controller: c,
+            startHit: pt.clone(),
+            startPos: holder.position.clone(),
+          };
+        } else if (!ringHit && radial > 0.31 * holder.scale.x) {
+          cornerDrag = {
+            controller: c,
+            cornerIndex: 0,
+            startDist: Math.max(0.06, radial),
+            startScale: holder.scale.x,
+            startAngle: Math.atan2(dx, dz),
+            startYaw: holder.rotation.y,
+          };
+        } else {
+          ringDrag = { controller: c, startAngle: Math.atan2(dx, dz), startYaw: holder.rotation.y };
+        }
         pulseHaptic(c, 0.3, 16);
         return;
       }
@@ -1557,9 +1638,12 @@ export function createTabletop({
     });
 
     const releaseSelect = () => {
+      c.userData.modelSelect = false;
+      two = null;
       if (activeSlider?.controller === c) activeSlider = null;
       if (ringDrag?.controller === c) { ringDrag = null; resizeBadge.visible = false; }
       if (cornerDrag?.controller === c) { cornerDrag = null; resizeBadge.visible = false; }
+      if (modelPanDrag?.controller === c) { modelPanDrag = null; resizeBadge.visible = false; }
       if (reliefDrag?.controller === c) reliefDrag = null;
       if (dockDrag?.controller === c) dockDrag = null;
     };
@@ -1570,16 +1654,14 @@ export function createTabletop({
       two = null;
       ringDrag = null;
       cornerDrag = null;
+      modelPanDrag = null;
       reliefDrag = null;
       dockDrag = null;
       pulseHaptic(c, 0.25, 14);
     });
-    c.addEventListener('squeezeend', () => { c.userData.grab = false; grab = null; two = null; });
-    c.addEventListener('disconnected', () => { c.userData.grab = false; grab = null; two = null; releaseSelect(); });
+    c.addEventListener('squeezeend', () => { c.userData.grab = false; grab = null; two = null; resizeBadge.visible = false; });
+    c.addEventListener('disconnected', () => { c.userData.grab = false; c.userData.modelSelect = false; grab = null; two = null; releaseSelect(); });
   }
-
-  const midpoint = () => controllers[0].position.clone().add(controllers[1].position).multiplyScalar(0.5);
-  const twoAngle = () => Math.atan2(controllers[1].position.z - controllers[0].position.z, controllers[1].position.x - controllers[0].position.x);
 
   function syncLighting(lightName) {
     const lm = lightModes?.[lightName] || lightModes?.day;
@@ -1601,61 +1683,66 @@ export function createTabletop({
 
   function drawGlassSurface(g, w, h, radius) {
     rrect(g, 8, 8, w - 16, h - 16, radius);
-    const bg = g.createLinearGradient(0, 0, w * 0.2, h);
-    bg.addColorStop(0, 'rgba(28, 35, 44, 0.86)');
-    bg.addColorStop(0.55, 'rgba(18, 22, 28, 0.88)');
-    bg.addColorStop(1, 'rgba(11, 14, 18, 0.92)');
+    const bg = g.createLinearGradient(0, 8, 0, h - 8);
+    bg.addColorStop(0, 'rgba(48, 52, 60, 0.84)');
+    bg.addColorStop(0.5, 'rgba(34, 37, 45, 0.87)');
+    bg.addColorStop(1, 'rgba(22, 24, 30, 0.91)');
     g.fillStyle = bg;
     g.fill();
 
-    // Subtle spatial top specular catchlight
-    const sheen = g.createLinearGradient(0, 8, 0, h * 0.45);
-    sheen.addColorStop(0, 'rgba(220, 236, 255, 0.14)');
-    sheen.addColorStop(1, 'rgba(220, 236, 255, 0)');
+    // visionOS soft top-edge inner illumination
+    const sheen = g.createLinearGradient(0, 8, 0, h * 0.48);
+    sheen.addColorStop(0, 'rgba(255, 255, 255, 0.13)');
+    sheen.addColorStop(1, 'rgba(255, 255, 255, 0)');
     g.fillStyle = sheen;
     g.fill();
 
-    g.strokeStyle = 'rgba(220, 236, 255, 0.28)';
-    g.lineWidth = 2.5;
+    // Specular rim stroke (bright top edge fading down)
+    const rim = g.createLinearGradient(0, 8, 0, h - 8);
+    rim.addColorStop(0, 'rgba(255, 255, 255, 0.46)');
+    rim.addColorStop(0.5, 'rgba(255, 255, 255, 0.18)');
+    rim.addColorStop(1, 'rgba(255, 255, 255, 0.08)');
+    g.strokeStyle = rim;
+    g.lineWidth = 2;
     g.stroke();
   }
 
   function drawPillButton(g, r, label, {
     active = false,
     accent = false,
+    danger = false,
     hover = false,
     icon = null,
     iconSize = 18,
-    font = '500 25px "Geist", system-ui, sans-serif',
-    radius = 24,
+    font = '500 24px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
+    radius = 28,
   } = {}) {
     const w = r.x1 - r.x0;
     const h = r.y1 - r.y0;
     const cxB = (r.x0 + r.x1) * 0.5;
     const cyB = (r.y0 + r.y1) * 0.5;
     rrect(g, r.x0, r.y0, w, h, radius);
-    if (accent) {
-      const ag = g.createLinearGradient(r.x0, r.y0, r.x0, r.y1);
-      ag.addColorStop(0, hover ? '#ffa56b' : '#ff8e47');
-      ag.addColorStop(1, hover ? '#ff7c36' : '#f26922');
-      g.fillStyle = ag;
-    } else if (active) {
-      g.fillStyle = hover ? 'rgba(255, 130, 56, 0.34)' : 'rgba(255, 122, 53, 0.22)';
+    const lit = accent || active;
+    if (danger) {
+      g.fillStyle = hover ? 'rgba(255, 86, 86, 0.36)' : 'rgba(255, 76, 76, 0.20)';
+    } else if (lit) {
+      g.fillStyle = hover ? '#ffffff' : 'rgba(246, 248, 252, 0.95)';
     } else {
-      g.fillStyle = hover ? 'rgba(225, 238, 255, 0.19)' : 'rgba(225, 238, 255, 0.08)';
+      g.fillStyle = hover ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.10)';
     }
     g.fill();
-    g.strokeStyle = accent
-      ? 'rgba(255, 224, 196, 0.85)'
-      : active
-        ? '#ff8540'
+
+    g.strokeStyle = danger
+      ? (hover ? 'rgba(255, 175, 175, 0.65)' : 'rgba(255, 145, 145, 0.34)')
+      : lit
+        ? 'rgba(255, 255, 255, 0.95)'
         : hover
-          ? 'rgba(235, 244, 255, 0.55)'
-          : 'rgba(225, 238, 255, 0.16)';
-    g.lineWidth = active || hover || accent ? 2.5 : 1.5;
+          ? 'rgba(255, 255, 255, 0.45)'
+          : 'rgba(255, 255, 255, 0.16)';
+    g.lineWidth = lit || hover ? 2 : 1.5;
     g.stroke();
 
-    const fg = accent ? '#1c0c04' : active ? '#ffffff' : '#eef1f5';
+    const fg = danger ? '#ffe5e5' : lit ? '#111318' : '#f5f7fa';
     g.fillStyle = fg;
     g.font = font;
     g.textAlign = 'center';
@@ -1663,11 +1750,11 @@ export function createTabletop({
     if (icon && label) {
       const gap = 10;
       const tw = g.measureText(label).width;
-      const total = iconSize * 1.4 + gap + tw;
+      const total = iconSize * 1.3 + gap + tw;
       const startX = cxB - total * 0.5;
-      drawIcon(g, icon, startX + iconSize * 0.7, cyB, iconSize, fg);
+      drawIcon(g, icon, startX + iconSize * 0.65, cyB, iconSize, fg);
       g.textAlign = 'left';
-      g.fillText(label, startX + iconSize * 1.4 + gap, cyB + 1);
+      g.fillText(label, startX + iconSize * 1.3 + gap, cyB + 1);
     } else if (icon) {
       drawIcon(g, icon, cxB, cyB, iconSize, fg);
     } else if (label) {
@@ -1675,22 +1762,36 @@ export function createTabletop({
     }
   }
 
-  function drawSlider(g, r, t, hover, fillCol = '#ff7a35') {
+  // Apple visionOS filled-capsule slider (recessed dark glass track + luminous white fill bar)
+  function drawSlider(g, r, t, hover) {
     const cy = (r.y0 + r.y1) * 0.5;
     const len = r.tx1 - r.tx0;
-    rrect(g, r.tx0, cy - 8, len, 16, 8);
-    g.fillStyle = 'rgba(225, 238, 255, 0.13)';
+    const barH = 36;
+    const rad = barH * 0.5;
+    const clampedT = clamp(t, 0, 1);
+
+    g.save();
+    rrect(g, r.tx0, cy - rad, len, barH, rad);
+    g.fillStyle = hover ? 'rgba(0, 0, 0, 0.36)' : 'rgba(0, 0, 0, 0.28)';
     g.fill();
-    rrect(g, r.tx0, cy - 8, Math.max(14, len * t), 16, 8);
-    g.fillStyle = fillCol;
+    g.clip();
+
+    const fillW = Math.max(barH, len * clampedT);
+    rrect(g, r.tx0, cy - rad, fillW, barH, rad);
+    g.fillStyle = hover ? '#ffffff' : 'rgba(245, 247, 250, 0.90)';
     g.fill();
-    const kx = r.tx0 + len * t;
+
+    // Subtle dark knob dot inside the right end of the white fill capsule
+    const kx = r.tx0 + fillW - rad;
     g.beginPath();
-    g.arc(kx, cy, hover ? 20 : 17, 0, Math.PI * 2);
-    g.fillStyle = '#f5f4f0';
+    g.arc(kx, cy, 6, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(17, 19, 24, 0.45)';
     g.fill();
-    g.strokeStyle = fillCol;
-    g.lineWidth = 5;
+    g.restore();
+
+    rrect(g, r.tx0, cy - rad, len, barH, rad);
+    g.strokeStyle = hover ? 'rgba(255, 255, 255, 0.48)' : 'rgba(255, 255, 255, 0.18)';
+    g.lineWidth = 1.5;
     g.stroke();
   }
 
@@ -1701,102 +1802,120 @@ export function createTabletop({
 
     const byId = Object.fromEntries(DOCK_LAYOUT.map(x => [x.id, x]));
 
-    // Play / Pause circular orb
+    // Play / Pause luminous white circular button
     drawPillButton(g, byId.playPause, '', {
       accent: true,
       hover: hoverDockId === 'playPause',
       icon: st.playing ? 'pause' : 'play',
-      iconSize: 32,
-      radius: 60,
+      iconSize: 30,
+      radius: 64,
     });
 
-    // Stage prev/next + title/live telemetry readout
+    // Stage prev/next circular glass buttons
     drawPillButton(g, byId.prevStage, '', {
       hover: hoverDockId === 'prevStage',
       icon: 'prev',
-      iconSize: 22,
-      radius: 22,
+      iconSize: 20,
+      radius: 32,
     });
     drawPillButton(g, byId.nextStage, '', {
       hover: hoverDockId === 'nextStage',
       icon: 'next',
-      iconSize: 22,
-      radius: 22,
+      iconSize: 20,
+      radius: 32,
     });
 
-    // Live status pill dot + title
-    const titleX = 254;
+    // Clean Apple SF / Inter header & live telemetry
+    const titleX = 248;
     if (st.erupting) {
       g.beginPath();
-      g.arc(titleX + 7, 65, 7, 0, Math.PI * 2);
-      g.fillStyle = st.playing ? '#ff7a35' : '#ffb86c';
+      g.arc(titleX + 7, 62, 6, 0, Math.PI * 2);
+      g.fillStyle = st.playing ? '#ff9f0a' : 'rgba(255, 159, 10, 0.65)';
       g.fill();
     }
-    g.fillStyle = '#f5f4f0';
-    g.font = '500 30px "Newsreader", Georgia, serif';
+    g.fillStyle = '#ffffff';
+    g.font = '600 27px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
     g.textAlign = 'left';
     g.textBaseline = 'middle';
-    g.fillText(st.title || 'Börzsöny', st.erupting ? titleX + 24 : titleX, 66);
+    g.fillText(st.title || 'Börzsöny', st.erupting ? titleX + 22 : titleX, 62);
 
     const spd = getSpeed ? getSpeed() : (st.speed || 1);
     const spdTag = Math.abs(spd - 1) > 0.05 ? ` · ${spd}×` : '';
     const timeStr = ([st.timeText, st.clockText].filter(Boolean).join(' · ') || `${Math.round(st.p * 100)}%`) + spdTag;
-    g.fillStyle = '#b4c2d0';
-    g.font = '400 20px "Geist Mono", ui-monospace, monospace';
-    g.fillText(timeStr, titleX, 102);
+    g.fillStyle = 'rgba(235, 240, 248, 0.62)';
+    g.font = '500 19px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
+    g.fillText(timeStr, titleX, 96);
 
-    // Stratigraphic timeline track (3D playhead renders smoothly at 90 Hz above it)
+    // Sleek visionOS timeline scrubber track (with 90 Hz 3D pearl playhead above it)
     const tl = byId.timeline;
     const cy = (tl.y0 + tl.y1) * 0.5;
     const len = tl.tx1 - tl.tx0;
+    const trackH = 18;
+    const trackR = trackH * 0.5;
     g.save();
-    rrect(g, tl.tx0, cy - 15, len, 30, 15);
+    rrect(g, tl.tx0, cy - trackR, len, trackH, trackR);
+    g.fillStyle = 'rgba(0, 0, 0, 0.34)';
+    g.fill();
     g.clip();
+
+    // Subtle desaturated stage color bands underneath
     for (const b of stageBands) {
       const bx0 = tl.tx0 + b.p0 * len;
       const bw = Math.max(2, (b.p1 - b.p0) * len + 1);
-      const grad = g.createLinearGradient(bx0, 0, bx0 + bw, 0);
-      grad.addColorStop(0, b.c || '#777');
-      grad.addColorStop(1, b.c2 || b.c || '#777');
-      g.fillStyle = grad;
-      g.fillRect(bx0, cy - 15, bw, 30);
+      g.fillStyle = b.c || '#777';
+      g.globalAlpha = 0.28;
+      g.fillRect(bx0, cy - trackR, bw, trackH);
     }
-    // Glossy glass highlight across timeline bar
-    const tlGloss = g.createLinearGradient(0, cy - 15, 0, cy + 15);
-    tlGloss.addColorStop(0, 'rgba(255,255,255,0.22)');
-    tlGloss.addColorStop(0.45, 'rgba(255,255,255,0.03)');
-    tlGloss.addColorStop(1, 'rgba(0,0,0,0.22)');
-    g.fillStyle = tlGloss;
-    g.fillRect(tl.tx0, cy - 15, len, 30);
+    g.globalAlpha = 1;
+
+    // Luminous white progress fill up to current playhead
+    const fillW = Math.max(trackH, len * clamp(st.p, 0, 1));
+    rrect(g, tl.tx0, cy - trackR, fillW, trackH, trackR);
+    g.fillStyle = 'rgba(255, 255, 255, 0.86)';
+    g.fill();
     g.restore();
 
-    rrect(g, tl.tx0, cy - 15, len, 30, 15);
-    g.strokeStyle = hoverDockId === 'timeline' || activeSlider?.id === 'timeline' ? 'rgba(235,245,255,0.75)' : 'rgba(235,245,255,0.28)';
-    g.lineWidth = 2;
+    rrect(g, tl.tx0, cy - trackR, len, trackH, trackR);
+    g.strokeStyle = hoverDockId === 'timeline' || activeSlider?.id === 'timeline' ? 'rgba(255, 255, 255, 0.62)' : 'rgba(255, 255, 255, 0.20)';
+    g.lineWidth = 1.5;
     g.stroke();
 
-    // Drawer toggles & Place button with vector icons
+    // Subtle vertical glass divider between timeline and window actions
+    g.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(895, 56);
+    g.lineTo(895, DOCK_H - 56);
+    g.stroke();
+
+    // Right cluster: Stages, View, Recenter, Leave VR
     drawPillButton(g, byId.drawerStages, 'Stages', {
       active: openDrawer === 'stages',
       hover: hoverDockId === 'drawerStages',
       icon: 'layers',
-      iconSize: 18,
-      font: '500 25px "Geist", system-ui, sans-serif',
-      radius: 36,
+      iconSize: 17,
+      radius: 60,
     });
     drawPillButton(g, byId.drawerView, 'View', {
       active: openDrawer === 'view',
       hover: hoverDockId === 'drawerView',
       icon: 'sliders',
-      iconSize: 18,
-      font: '500 25px "Geist", system-ui, sans-serif',
-      radius: 36,
+      iconSize: 17,
+      radius: 60,
     });
     drawPillButton(g, byId.placeAgain, '', {
       hover: hoverDockId === 'placeAgain',
       icon: 'target',
-      iconSize: 22,
-      radius: 36,
+      iconSize: 21,
+      radius: 60,
+    });
+    drawPillButton(g, byId.exitVR, 'Leave VR', {
+      danger: true,
+      hover: hoverDockId === 'exitVR',
+      icon: 'exit',
+      iconSize: 16,
+      font: '500 22px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
+      radius: 60,
     });
 
     dockTex.needsUpdate = true;
@@ -1806,33 +1925,33 @@ export function createTabletop({
     if (!openDrawer) return;
     const g = drawerCtx;
     g.clearRect(0, 0, DRAWER_W, DRAWER_H);
-    drawGlassSurface(g, DRAWER_W, DRAWER_H, 46);
+    drawGlassSurface(g, DRAWER_W, DRAWER_H, 52);
 
     if (openDrawer === 'stages') {
       const byId = Object.fromEntries(DRAWER_STAGES_LAYOUT.map(x => [x.id, x]));
-      g.fillStyle = '#97a5b4';
-      g.font = '600 19px "Geist Mono", monospace';
+      g.fillStyle = 'rgba(235, 240, 248, 0.55)';
+      g.font = '600 18px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
       g.textAlign = 'left';
       g.textBaseline = 'middle';
-      g.fillText('GEOLOGICAL STAGES · SPEED', 40, 62);
+      g.fillText('TIMELINE CHAPTERS · PLAYBACK SPEED', 44, 62);
 
       const curSpeed = getSpeed ? getSpeed() : (st.speed || 1);
       for (const [id, val, lbl] of [['speed05', 0.5, '0.5×'], ['speed1', 1, '1×'], ['speed2', 2, '2×'], ['speed4', 4, '4×']]) {
         drawPillButton(g, byId[id], lbl, {
           active: Math.abs(curSpeed - val) < 0.08,
           hover: hoverDrawerId === id,
-          font: '600 21px "Geist Mono", monospace',
-          radius: 22,
+          font: '600 20px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
+          radius: 34,
         });
       }
 
       drawPillButton(g, byId.watchEruption, 'Watch Eruption', {
         accent: st.erupting && st.playing,
-        active: st.erupting,
+        active: st.erupting && !st.playing,
         hover: hoverDrawerId === 'watchEruption',
         icon: 'flame',
-        iconSize: 18,
-        font: '600 24px "Geist", system-ui, sans-serif',
+        iconSize: 17,
+        font: '600 23px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
         radius: 36,
       });
 
@@ -1843,26 +1962,27 @@ export function createTabletop({
         const hov = hoverDrawerId === id;
         const w = r.x1 - r.x0;
         const h = r.y1 - r.y0;
-        rrect(g, r.x0, r.y0, w, h, 26);
-        g.fillStyle = act ? 'rgba(255, 122, 53, 0.24)' : hov ? 'rgba(225, 238, 255, 0.16)' : 'rgba(225, 238, 255, 0.06)';
+        rrect(g, r.x0, r.y0, w, h, 28);
+        g.fillStyle = act ? 'rgba(255, 255, 255, 0.94)' : hov ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.07)';
         g.fill();
-        g.strokeStyle = act ? '#ff8540' : hov ? 'rgba(225, 238, 255, 0.45)' : 'rgba(225, 238, 255, 0.15)';
-        g.lineWidth = act || hov ? 2.5 : 1.5;
+        g.strokeStyle = act ? '#ffffff' : hov ? 'rgba(255, 255, 255, 0.42)' : 'rgba(255, 255, 255, 0.14)';
+        g.lineWidth = act || hov ? 2 : 1.5;
         g.stroke();
 
-        // Colored accent bar + swatch dot
-        rrect(g, r.x0 + 18, r.y0 + 16, 48, 6, 3);
+        // Refined stage color dot
+        g.beginPath();
+        g.arc(r.x0 + 28, r.y0 + 42, 7, 0, Math.PI * 2);
         g.fillStyle = pill.c;
         g.fill();
 
-        g.fillStyle = act ? '#ffffff' : '#eef1f5';
-        g.font = '600 27px "Geist", system-ui, sans-serif';
+        g.fillStyle = act ? '#111318' : '#f5f7fa';
+        g.font = '600 26px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
         g.textAlign = 'left';
-        g.fillText(pill.label, r.x0 + 22, r.y0 + 52);
+        g.fillText(pill.label, r.x0 + 46, r.y0 + 43);
 
-        g.fillStyle = act ? '#ffc6a8' : '#9caab8';
-        g.font = '400 20px "Geist Mono", monospace';
-        g.fillText(pill.sub, r.x0 + 22, r.y0 + 94);
+        g.fillStyle = act ? 'rgba(17, 19, 24, 0.65)' : 'rgba(235, 240, 248, 0.55)';
+        g.font = '500 19px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
+        g.fillText(pill.sub, r.x0 + 24, r.y0 + 88);
       }
     } else if (openDrawer === 'view') {
       const byId = Object.fromEntries(DRAWER_VIEW_LAYOUT.map(x => [x.id, x]));
@@ -1874,32 +1994,32 @@ export function createTabletop({
 
       g.textAlign = 'left';
       g.textBaseline = 'middle';
-      g.fillStyle = '#b7c3cf';
-      g.font = '600 21px "Geist Mono", monospace';
-      g.fillText(`SIZE ${curScale.toFixed(2)}×`, 38, 74);
-      g.fillText(`ROT ${String(yawDeg).padStart(3, '0')}°`, 38, 172);
-      g.fillText(`RELIEF ${curExag.toFixed(1)}×`, 38, 270);
+      g.fillStyle = 'rgba(235, 240, 248, 0.72)';
+      g.font = '500 21px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
+      g.fillText(`Scale  ${curScale.toFixed(2)}×`, 42, 73);
+      g.fillText(`Rotate  ${yawDeg}°`, 42, 171);
+      g.fillText(`Relief  ${curExag.toFixed(1)}×`, 42, 269);
 
       drawSlider(g, byId.scaleSlider, scaleToT(curScale), hoverDrawerId === 'scaleSlider' || activeSlider?.id === 'scaleSlider');
-      drawPillButton(g, byId.scale05, '0.5×', { active: Math.abs(curScale - 0.5) < 0.06, hover: hoverDrawerId === 'scale05', font: '500 23px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.scale10, '1×', { active: Math.abs(curScale - 1.0) < 0.06, hover: hoverDrawerId === 'scale10', font: '500 23px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.scale20, '2×', { active: Math.abs(curScale - 2.0) < 0.08, hover: hoverDrawerId === 'scale20', font: '500 23px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.scale05, '0.5×', { active: Math.abs(curScale - 0.5) < 0.06, hover: hoverDrawerId === 'scale05', radius: 34 });
+      drawPillButton(g, byId.scale10, '1×', { active: Math.abs(curScale - 1.0) < 0.06, hover: hoverDrawerId === 'scale10', radius: 34 });
+      drawPillButton(g, byId.scale20, '2×', { active: Math.abs(curScale - 2.0) < 0.08, hover: hoverDrawerId === 'scale20', radius: 34 });
 
       const rotNorm = (((0.5 - holder.rotation.y / (Math.PI * 2)) % 1) + 1) % 1;
-      drawSlider(g, byId.rotSlider, rotNorm, hoverDrawerId === 'rotSlider' || activeSlider?.id === 'rotSlider', '#9ed8ff');
-      drawPillButton(g, byId.rotNorth, 'N · 0°', { active: yawDeg < 4 || yawDeg > 356, hover: hoverDrawerId === 'rotNorth', font: '600 23px "Geist Mono", monospace', radius: 24 });
+      drawSlider(g, byId.rotSlider, rotNorm, hoverDrawerId === 'rotSlider' || activeSlider?.id === 'rotSlider');
+      drawPillButton(g, byId.rotNorth, 'North · 0°', { active: yawDeg < 4 || yawDeg > 356, hover: hoverDrawerId === 'rotNorth', radius: 34 });
 
       drawSlider(g, byId.exagSlider, clamp((curExag - 1) / 3, 0, 1), hoverDrawerId === 'exagSlider' || activeSlider?.id === 'exagSlider');
-      drawPillButton(g, byId.exag1, '1×', { active: Math.abs(curExag - 1.0) < 0.08, hover: hoverDrawerId === 'exag1', font: '500 22px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.exag15, '1.5×', { active: Math.abs(curExag - 1.5) < 0.08, hover: hoverDrawerId === 'exag15', font: '500 22px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.exag2, '2×', { active: Math.abs(curExag - 2.0) < 0.08, hover: hoverDrawerId === 'exag2', font: '500 22px "Geist Mono", monospace', radius: 24 });
-      drawPillButton(g, byId.exag3, '3×', { active: Math.abs(curExag - 3.0) < 0.08, hover: hoverDrawerId === 'exag3', font: '500 22px "Geist Mono", monospace', radius: 24 });
+      drawPillButton(g, byId.exag1, '1×', { active: Math.abs(curExag - 1.0) < 0.08, hover: hoverDrawerId === 'exag1', radius: 34 });
+      drawPillButton(g, byId.exag15, '1.5×', { active: Math.abs(curExag - 1.5) < 0.08, hover: hoverDrawerId === 'exag15', radius: 34 });
+      drawPillButton(g, byId.exag2, '2×', { active: Math.abs(curExag - 2.0) < 0.08, hover: hoverDrawerId === 'exag2', radius: 34 });
+      drawPillButton(g, byId.exag3, '3×', { active: Math.abs(curExag - 3.0) < 0.08, hover: hoverDrawerId === 'exag3', radius: 34 });
 
-      drawPillButton(g, byId.lightDay, 'Day', { active: curLight === 'day', hover: hoverDrawerId === 'lightDay', icon: 'sun', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
-      drawPillButton(g, byId.lightDusk, 'Dusk', { active: curLight === 'dusk', hover: hoverDrawerId === 'lightDusk', icon: 'dusk', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
-      drawPillButton(g, byId.lightNight, 'Night', { active: curLight === 'night', hover: hoverDrawerId === 'lightNight', icon: 'moon', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
-      drawPillButton(g, byId.toggleGhost, curGhost ? "Today's Rim · ON" : "Today's Rim · OFF", { active: curGhost, hover: hoverDrawerId === 'toggleGhost', font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
-      drawPillButton(g, byId.resetView, 'Reset', { hover: hoverDrawerId === 'resetView', icon: 'reset', iconSize: 16, font: '500 23px "Geist", system-ui, sans-serif', radius: 24 });
+      drawPillButton(g, byId.lightDay, 'Day', { active: curLight === 'day', hover: hoverDrawerId === 'lightDay', icon: 'sun', iconSize: 16, radius: 32 });
+      drawPillButton(g, byId.lightDusk, 'Dusk', { active: curLight === 'dusk', hover: hoverDrawerId === 'lightDusk', icon: 'dusk', iconSize: 16, radius: 32 });
+      drawPillButton(g, byId.lightNight, 'Night', { active: curLight === 'night', hover: hoverDrawerId === 'lightNight', icon: 'moon', iconSize: 16, radius: 32 });
+      drawPillButton(g, byId.toggleGhost, curGhost ? "Today's Rim · On" : "Today's Rim · Off", { active: curGhost, hover: hoverDrawerId === 'toggleGhost', radius: 32 });
+      drawPillButton(g, byId.resetView, 'Reset', { hover: hoverDrawerId === 'resetView', icon: 'reset', iconSize: 16, radius: 32 });
     }
 
     drawerTex.needsUpdate = true;
@@ -1948,6 +2068,8 @@ export function createTabletop({
       resizeBadge.visible = false;
       reticle.visible = false;
       cursorDot.visible = false;
+      handPinchOrbs.forEach(o => { o.visible = false; });
+      handPinchState.forEach(h => { h.pinching = false; });
       placed = false;
       openDrawer = null;
       drawerAnim = 0;
@@ -1958,6 +2080,7 @@ export function createTabletop({
       activeSlider = null;
       ringDrag = null;
       cornerDrag = null;
+      modelPanDrag = null;
       reliefDrag = null;
       dockDrag = null;
       hoverDockId = null;
@@ -1965,10 +2088,11 @@ export function createTabletop({
       hoverCorner = -1;
       hoverRelief = false;
       hoverRing = false;
+      hoverModel = false;
       hoverGrabBar = false;
       prevHoverSig = '';
       lastButtons.clear();
-      controllers.forEach(c => { c.userData.grab = false; });
+      controllers.forEach(c => { c.userData.grab = false; c.userData.modelSelect = false; });
       document.body.classList.remove('in-xr');
       renderer.setClearColor(0x000000, 1);
     });
@@ -2035,16 +2159,66 @@ export function createTabletop({
       if (pose) reticle.position.set(pose.transform.position.x, pose.transform.position.y + 0.002, pose.transform.position.z);
     }
 
-    // Two-hand or one-hand grip manipulation
-    const held = controllers.filter(c => c.userData.grab);
-    if (placed && held.length === 2) {
-      const mid = midpoint();
-      const distance = Math.max(0.04, controllers[0].position.distanceTo(controllers[1].position));
+    // Near-field WebXR Hand Tracking joint pinch detection (thumb-tip + index-finger-tip)
+    let handIdx = 0;
+    handPinchOrbs[0].visible = false;
+    handPinchOrbs[1].visible = false;
+    if (placed && frame && space && frame.getJointPose) {
+      for (const source of session.inputSources) {
+        if (!source.hand || handIdx >= 2) continue;
+        const idxJoint = source.hand.get('index-finger-tip');
+        const thbJoint = source.hand.get('thumb-tip');
+        const idxPose = idxJoint ? frame.getJointPose(idxJoint, space) : null;
+        const thbPose = thbJoint ? frame.getJointPose(thbJoint, space) : null;
+        const hs = handPinchState[handIdx];
+        if (idxPose && thbPose) {
+          const ix = idxPose.transform.position.x, iy = idxPose.transform.position.y, iz = idxPose.transform.position.z;
+          const tx = thbPose.transform.position.x, ty = thbPose.transform.position.y, tz = thbPose.transform.position.z;
+          hs.pos.set((ix + tx) * 0.5, (iy + ty) * 0.5, (iz + tz) * 0.5);
+          const pinchDist = Math.hypot(ix - tx, iy - ty, iz - tz);
+          const distToModel = Math.hypot(hs.pos.x - holder.position.x, hs.pos.z - holder.position.z);
+          if (distToModel < 0.65 * holder.scale.x + 0.25) {
+            const orb = handPinchOrbs[handIdx];
+            orb.position.copy(hs.pos);
+            orb.visible = true;
+            const wasPinching = hs.pinching;
+            hs.pinching = wasPinching ? pinchDist < 0.036 : pinchDist < 0.024;
+            orb.scale.setScalar(hs.pinching ? 1.35 : 0.9);
+            if (hs.pinching !== wasPinching) { two = null; grab = null; }
+          } else {
+            hs.pinching = false;
+          }
+        } else {
+          hs.pinching = false;
+        }
+        handIdx++;
+      }
+    }
+
+    // Direct 1-hand and 2-hand model manipulation (works with controller Grip, controller Trigger on model, or bare-hand Pinch!)
+    const activePts = [];
+    for (let i = 0; i < 2; i++) {
+      if (handPinchState[i].pinching) {
+        activePts.push(handPinchState[i].pos);
+      } else if (controllers[i] && (controllers[i].userData.grab || controllers[i].userData.modelSelect)) {
+        activePts.push(controllers[i].position);
+      }
+    }
+
+    if (placed && activePts.length >= 2) {
+      ringDrag = null;
+      cornerDrag = null;
+      modelPanDrag = null;
+      _p0.copy(activePts[0]);
+      _p1.copy(activePts[1]);
+      const mid = _v.copy(_p0).add(_p1).multiplyScalar(0.5);
+      const distance = Math.max(0.04, _p0.distanceTo(_p1));
+      const ang = Math.atan2(_p1.z - _p0.z, _p1.x - _p0.x);
       if (!two) {
         two = {
-          mid,
+          mid: mid.clone(),
           distance,
-          angle: twoAngle(),
+          angle: ang,
           scale: holder.scale.x,
           position: holder.position.clone(),
           yaw: holder.rotation.y,
@@ -2052,15 +2226,26 @@ export function createTabletop({
       }
       const nextScale = clampScale(two.scale * distance / two.distance);
       const ratio = nextScale / two.scale;
-      const delta = -(twoAngle() - two.angle);
+      const delta = -(ang - two.angle);
       holder.scale.setScalar(nextScale);
       holder.rotation.y = two.yaw + delta;
       holder.position.copy(two.position).sub(two.mid).multiplyScalar(ratio).applyAxisAngle(_up, delta).add(mid);
-    } else if (placed && held.length === 1) {
-      const c = held[0];
-      if (!grab) grab = { c, offset: c.matrixWorld.clone().invert().multiply(holder.matrixWorld) };
-      const m = c.matrixWorld.clone().multiply(grab.offset);
-      m.decompose(holder.position, holder.quaternion, holder.scale);
+    } else if (placed) {
+      two = null;
+      const gripCtrl = controllers.find(c => c.userData.grab);
+      const nearHand = handPinchState.find(h => h.pinching);
+      if (gripCtrl) {
+        if (!grab) grab = { c: gripCtrl, offset: gripCtrl.matrixWorld.clone().invert().multiply(holder.matrixWorld) };
+        const m = gripCtrl.matrixWorld.clone().multiply(grab.offset);
+        m.decompose(holder.position, holder.quaternion, holder.scale);
+      } else if (nearHand && !ringDrag && !cornerDrag && !modelPanDrag && !activeSlider && !dockDrag) {
+        if (!grab) grab = { hand: nearHand, startHand: nearHand.pos.clone(), startPos: holder.position.clone() };
+        if (grab.hand === nearHand) {
+          holder.position.copy(grab.startPos).add(nearHand.pos).sub(grab.startHand);
+        }
+      } else {
+        grab = null;
+      }
     }
 
     // Dual thumbstick & button controls (zero per-frame array allocations)
@@ -2089,7 +2274,7 @@ export function createTabletop({
       }
     }
 
-    // Active continuous drag handlers (sliders, dock grab bar, turntable ring, corner resize, vertical relief)
+    // Active continuous drag handlers (sliders, dock grab bar, 1-hand corner resize+rotate, turntable ring, plinth move, relief)
     if (placed && activeSlider) {
       controllerRay(activeSlider.controller);
       const targetMesh = activeSlider.surface === 'drawer' ? drawerMesh : dockMesh;
@@ -2121,12 +2306,26 @@ export function createTabletop({
       dockUserDistOffset = clamp(dockDrag.startDistOff + dr, -0.14, 0.36);
     }
 
-    if (placed && cornerDrag) {
+    if (placed && cornerDrag && activePts.length < 2) {
       controllerRay(cornerDrag.controller);
       _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
       if (raycaster.ray.intersectPlane(_plane, _hitW)) {
-        const d = Math.max(0.08, Math.hypot(_hitW.x - holder.position.x, _hitW.z - holder.position.z));
+        const dx = _hitW.x - holder.position.x;
+        const dz = _hitW.z - holder.position.z;
+        const d = Math.max(0.06, Math.hypot(dx, dz));
         holder.scale.setScalar(clampScale(cornerDrag.startScale * (d / cornerDrag.startDist)));
+        if (cornerDrag.startAngle !== undefined) {
+          holder.rotation.y = cornerDrag.startYaw + (Math.atan2(dx, dz) - cornerDrag.startAngle);
+        }
+      }
+    }
+
+    if (placed && modelPanDrag && activePts.length < 2) {
+      controllerRay(modelPanDrag.controller);
+      _plane.setFromNormalAndCoplanarPoint(_up, modelPanDrag.startPos);
+      if (raycaster.ray.intersectPlane(_plane, _hitW)) {
+        holder.position.x = modelPanDrag.startPos.x + (_hitW.x - modelPanDrag.startHit.x);
+        holder.position.z = modelPanDrag.startPos.z + (_hitW.z - modelPanDrag.startHit.z);
       }
     }
 
@@ -2142,7 +2341,7 @@ export function createTabletop({
       }
     }
 
-    if (placed && ringDrag) {
+    if (placed && ringDrag && activePts.length < 2) {
       controllerRay(ringDrag.controller);
       _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
       if (raycaster.ray.intersectPlane(_plane, _hitW)) {
@@ -2152,12 +2351,13 @@ export function createTabletop({
       }
     }
 
-    // Hover feedback, micro-haptics & cursor halo across controllers / hand rays
+    // Hover feedback, micro-haptics & pearl cursor halo across controllers / hand rays
     hoverDockId = null;
     hoverDrawerId = null;
     hoverCorner = -1;
     hoverRelief = false;
     hoverRing = false;
+    hoverModel = false;
     hoverGrabBar = false;
     cursorDot.visible = false;
     let hoveredCtrl = null;
@@ -2210,7 +2410,7 @@ export function createTabletop({
             highlighted = true;
             hoveredCtrl = c;
             hoveredKey = 'grab';
-          } else if (raycaster.intersectObject(reliefHitMesh)[0]) {
+          } else if (reliefRoot.visible && raycaster.intersectObject(reliefHitMesh)[0]) {
             hoverRelief = true;
             highlighted = true;
             hoveredCtrl = c;
@@ -2227,13 +2427,18 @@ export function createTabletop({
               highlighted = true;
               hoveredCtrl = c;
               hoveredKey = 'ring';
+            } else if (raycaster.intersectObject(modelHitBox)[0]) {
+              hoverModel = true;
+              highlighted = true;
+              hoveredCtrl = c;
+              hoveredKey = 'model';
             }
           }
         }
 
-        c.userData.lineMat.color.setHex(highlighted ? 0xff9d66 : 0xa6ffe0);
-        c.userData.lineMat.opacity = highlighted ? 0.95 : 0.52;
-        c.userData.tipMat?.color.setHex(highlighted ? 0xff9d66 : 0xa6ffe0);
+        c.userData.lineMat.color.setHex(0xffffff);
+        c.userData.lineMat.opacity = highlighted ? 0.78 : 0.28;
+        c.userData.tipMat?.color.setHex(0xffffff);
       }
     }
 
@@ -2257,10 +2462,10 @@ export function createTabletop({
         }
       }
 
-      const targetLift = (hoverDockId || hoverDrawerId || activeSlider || dockDrag) ? 0.010 : 0;
+      const targetLift = (hoverDockId || hoverDrawerId || activeSlider || dockDrag) ? 0.008 : 0;
       dockLift += (targetLift - dockLift) * (1 - Math.exp(-dt * 12));
 
-      const offsetR = Math.max(0.36, 0.49 * holder.scale.x) + 0.13 + dockUserDistOffset;
+      const offsetR = Math.max(0.36, 0.49 * holder.scale.x) + 0.14 + dockUserDistOffset;
       uiRoot.position.set(
         holder.position.x + Math.sin(uiYaw) * offsetR,
         holder.position.y + 0.055 + dockLift + dockUserYOffset,
@@ -2268,13 +2473,13 @@ export function createTabletop({
       );
       uiRoot.rotation.set(0, uiYaw, 0);
 
-      // Grab pill hover/drag styling
+      // visionOS window grab pill hover/drag styling
       const grabHot = hoverGrabBar || !!dockDrag;
-      dockGrabPill.material.color.setHex(grabHot ? 0xff9654 : 0xdcecff);
-      dockGrabPill.material.opacity = grabHot ? 0.95 : 0.45;
-      dockGrabPill.scale.set(grabHot ? 1.15 : 1.0, grabHot ? 1.3 : 1.0, 1);
+      dockGrabPill.material.color.setHex(0xffffff);
+      dockGrabPill.material.opacity = grabHot ? 0.92 : 0.38;
+      dockGrabPill.scale.set(grabHot ? 1.12 : 1.0, grabHot ? 1.25 : 1.0, 1);
 
-      // Smooth 90 Hz 3D timeline playhead orb aligned to DOCK_LAYOUT.timeline
+      // Smooth 90 Hz 3D pearl-white timeline playhead orb aligned to DOCK_LAYOUT.timeline
       const tlRect = DOCK_LAYOUT[3];
       const tlPx = tlRect.tx0 + (tlRect.tx1 - tlRect.tx0) * clamp(st.p, 0, 1);
       const tlPy = (tlRect.y0 + tlRect.y1) * 0.5;
@@ -2284,61 +2489,64 @@ export function createTabletop({
         0.004,
       );
       const tlHot = hoverDockId === 'timeline' || activeSlider?.id === 'timeline';
-      timelinePlayhead.scale.setScalar(tlHot ? 1.24 : 1.0);
+      timelinePlayhead.scale.setScalar(tlHot ? 1.25 : 1.0);
 
       // Spring drawer open/close
       const targetDrawer = openDrawer ? 1 : 0;
       drawerAnim += (targetDrawer - drawerAnim) * (1 - Math.exp(-dt * 14));
       drawerPivot.visible = drawerAnim > 0.02;
       if (drawerPivot.visible) {
-        drawerPivot.scale.setScalar(0.90 + 0.10 * drawerAnim);
-        drawerPivot.position.y = dockPhysH * 0.5 + 0.068 + 0.024 * drawerAnim;
+        drawerPivot.scale.setScalar(0.92 + 0.08 * drawerAnim);
+        drawerPivot.position.y = dockPhysH * 0.5 + 0.070 + 0.022 * drawerAnim;
       }
 
-      // Position vertical relief handle smoothly to the right of the model
-      const rightAngle = uiYaw + Math.PI * 0.44;
-      const reliefR = Math.max(0.36, 0.49 * holder.scale.x) + 0.07;
-      reliefRoot.position.set(
-        holder.position.x + Math.sin(rightAngle) * reliefR,
-        holder.position.y + 0.025,
-        holder.position.z + Math.cos(rightAngle) * reliefR,
-      );
-      reliefRoot.rotation.set(0, uiYaw, 0);
-      const curExag = getExag ? getExag() : (st.exag || 1);
-      reliefOrb.position.y = clamp((curExag - 1) / 3, 0, 1) * reliefHeight;
-      reliefOrb.scale.setScalar((hoverRelief || reliefDrag) ? 1.28 : 1.0);
-      reliefOrb.material.color.setHex((hoverRelief || reliefDrag) ? 0xffa66b : 0xff7a35);
-      updateReliefLabel(curExag);
+      // Only show vertical relief rail when View sheet is open or dragging relief
+      reliefRoot.visible = openDrawer === 'view' || !!reliefDrag;
+      if (reliefRoot.visible) {
+        const rightAngle = uiYaw + Math.PI * 0.44;
+        const reliefR = Math.max(0.36, 0.49 * holder.scale.x) + 0.07;
+        reliefRoot.position.set(
+          holder.position.x + Math.sin(rightAngle) * reliefR,
+          holder.position.y + 0.025,
+          holder.position.z + Math.cos(rightAngle) * reliefR,
+        );
+        reliefRoot.rotation.set(0, uiYaw, 0);
+        const curExag = getExag ? getExag() : (st.exag || 1);
+        reliefOrb.position.y = clamp((curExag - 1) / 3, 0, 1) * reliefHeight;
+        reliefOrb.scale.setScalar((hoverRelief || reliefDrag) ? 1.25 : 1.0);
+        updateReliefLabel(curExag);
+      }
 
-      // Spatial corner bracket styling + floating handle badges (size or rotation)
+      // Minimalist visionOS corner brackets & floating manipulation pill
       const invS = Math.max(0.45, 1 / holder.scale.x);
+      const modelAwake = hoverModel || hoverRing || hoverCorner >= 0 || !!cornerDrag || !!ringDrag || !!modelPanDrag || !!two;
       for (let i = 0; i < cornerHandles.length; i++) {
         const ch = cornerHandles[i];
-        const hot = hoverCorner === i || cornerDrag?.cornerIndex === i;
-        ch.group.scale.setScalar(invS * (hot ? 1.28 : 1.0));
-        ch.orb.material.color.setHex(hot ? 0xff8a3d : 0x9ed8ff);
-        ch.ring.material.color.setHex(hot ? 0xff8a3d : 0x9ed8ff);
-        ch.ring.material.opacity = hot ? 0.92 : 0.45;
-        ch.armMat.color.setHex(hot ? 0xff8a3d : 0x9ed8ff);
-        ch.armMat.opacity = hot ? 1.0 : 0.68;
+        const hot = hoverCorner === i || cornerDrag?.cornerIndex === i || !!two;
+        ch.group.scale.setScalar(invS * (hot ? 1.22 : 1.0));
+        ch.orb.material.opacity = hot ? 0.95 : modelAwake ? 0.65 : 0.25;
+        ch.ring.material.opacity = hot ? 0.85 : modelAwake ? 0.42 : 0.14;
+        ch.armMat.opacity = hot ? 0.95 : modelAwake ? 0.55 : 0.20;
       }
 
-      if (cornerDrag || hoverCorner >= 0) {
-        const idx = cornerDrag ? cornerDrag.cornerIndex : hoverCorner;
-        cornerHandles[idx].group.getWorldPosition(_v);
-        _v.y += 0.052;
+      if (two || cornerDrag || hoverCorner >= 0) {
+        _v.set(holder.position.x, holder.position.y + 0.22 * holder.scale.x, holder.position.z);
         const s = holder.scale.x;
-        updateBadge(resizeBadge, `${s.toFixed(2)}× · ${Math.round(s * 65)} cm`, _v);
+        updateBadge(resizeBadge, `${s.toFixed(2)}× · ${Math.round(s * 65)} cm · ${normalizedYawDeg()}°`, _v);
         resizeBadge.lookAt(_camPosW);
       } else if (ringDrag) {
         _v.set(holder.position.x, holder.position.y + 0.22 * holder.scale.x, holder.position.z);
-        updateBadge(resizeBadge, `ROT ${String(normalizedYawDeg()).padStart(3, '0')}°`, _v);
+        updateBadge(resizeBadge, `Rotate · ${normalizedYawDeg()}°`, _v);
+        resizeBadge.lookAt(_camPosW);
+      } else if (modelPanDrag || grab) {
+        _v.set(holder.position.x, holder.position.y + 0.22 * holder.scale.x, holder.position.z);
+        updateBadge(resizeBadge, `Move · ${Math.round(holder.scale.x * 65)} cm`, _v);
         resizeBadge.lookAt(_camPosW);
       } else {
         resizeBadge.visible = false;
       }
 
-      turntableRing.material.opacity = (hoverRing || ringDrag) ? 1.0 : 0.78;
+      turntableRing.material.opacity = (hoverRing || ringDrag || modelAwake) ? 0.88 : 0.42;
     }
 
     // Sync ghost wireframe, crater point light intensity & visibility
@@ -2404,9 +2612,10 @@ export function createTabletop({
       }
     }
 
-    // Zero-stall dirty-checked redraw: dockKey ignores continuous p (3D playhead handles 90 Hz motion)
+    // Low-frequency dock redraw: 3D playhead handles 90 Hz motion; progress fill updates at ~120 steps
     const curSpd = getSpeed ? getSpeed() : (stNow.speed || 1);
     const dockKey = [
+      Math.round(stNow.p * 120),
       stNow.phase,
       stNow.timeText || '',
       stNow.clockText || '',
