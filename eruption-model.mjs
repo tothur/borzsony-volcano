@@ -248,7 +248,8 @@ export function createEruption(g, terrain) {
 
   function sample(time, surface = terrain) {
     const smoke = [], glow = [], flowDeposits = [], ashDeposits = [];
-    const puff = (kind, x, y, z, size, alpha, color, age, life, heat = 0, seed = 0) => smoke.push({ kind, x, y, z, size, alpha, color, age, life, heat, seed });
+    const puff = (kind, x, y, z, size, alpha, color, age, life, heat = 0, seed = 0, gy = undefined) =>
+      smoke.push(gy === undefined ? { kind, x, y, z, size, alpha, color, age, life, heat, seed } : { kind, x, y, z, size, alpha, color, age, life, heat, seed, gy });
     if (time < 0) {
       // Continuous deterministic fumarolic vapour rising cleanly as the dome pressurises.
       const vigor = 0.4 + 0.6 * smooth(-14 * 86400, 0, time);
@@ -258,7 +259,8 @@ export function createEruption(g, terrain) {
         const a = i * 2.39996, r = 55 + (i % 5) * 48;
         const x = source.x + Math.cos(a) * r + g.wind.x * age * 0.14;
         const z = source.z + Math.sin(a) * r + g.wind.z * age * 0.14;
-        puff(4, x, surface(x, z) + 8 + age * (2.6 + vigor * 1.4), z, 16 + age * (0.9 + 0.4 * vigor), (0.11 + 0.12 * vigor) * (1 - age / 65), colors.steam, age, 60, 0, i);
+        const gY = surface(x, z);
+        puff(4, x, gY + 8 + age * (2.6 + vigor * 1.4), z, 16 + age * (0.9 + 0.4 * vigor), (0.11 + 0.12 * vigor) * (1 - age / 65), colors.steam, age, 60, 0, i, gY);
       }
       return { smoke, glow, flowDeposits, ashDeposits };
     }
@@ -279,10 +281,10 @@ export function createEruption(g, terrain) {
     for (const d of flows) {
       const age = (time - d.birth) * d.rate, path = paths[d.path];
       if (age < 0 || age > path.duration + 135) continue;
-      const p = pathAt(path, age, d.lateral), ground = surface(p.x, p.z), f = p.s / Math.max(1, path.length);
       if (age < path.duration) {
+        const p = pathAt(path, age, d.lateral), ground = surface(p.x, p.z), f = p.s / Math.max(1, path.length);
         const flowHeat = Math.max(0.02, 0.14 * (1 - f * 0.85));
-        puff(2, p.x, ground + 12, p.z, d.size * (1 + 0.78 * f), 0.72, colors.dark, Math.min(age, 4) + 2, path.duration + 20, flowHeat, d.seed);
+        puff(2, p.x, ground + 12, p.z, d.size * (1 + 0.78 * f), 0.72, colors.dark, Math.min(age, 4) + 2, path.duration + 20, flowHeat, d.seed, ground);
         if (d.hot) glow.push({ x: p.x, y: ground + 3 + Math.abs(Math.sin(age * 3 + d.seed)) * 5, z: p.z, vx: p.vx, vy: 0, vz: p.vz, size: 2.8, temp: 0.52 * Math.exp(-age / 190) });
       }
       // Buoyant co-ignimbrite phoenix ash clouds elutriated along the moving pyroclastic surge.
@@ -292,7 +294,8 @@ export function createEruption(g, terrain) {
         const q = pathAt(path, release, d.lateral);
         const ci = Math.min(d.phoenix.length - 1, Math.floor(ca));
         const rise = d.phoenix[ci] * 0.65;
-        puff(1, q.x + g.wind.x * ca * 0.42, surface(q.x, q.z) + 26 + rise, q.z + g.wind.z * ca * 0.42, 46 + ca * 2.2, 0.23 * (1 - ca / 130), colors.ash, ca + 1, 132, Math.exp(-ca / 6) * 0.06, d.seed + j);
+        const gY = surface(q.x, q.z);
+        puff(1, q.x + g.wind.x * ca * 0.42, gY + 26 + rise, q.z + g.wind.z * ca * 0.42, 46 + ca * 2.2, 0.23 * (1 - ca / 130), colors.ash, ca + 1, 132, Math.exp(-ca / 6) * 0.06, d.seed + j, gY);
       }
     }
     for (const a of fallout) {

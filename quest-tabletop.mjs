@@ -358,6 +358,7 @@ void main() {
   vec2 cell = vec2(mod(vPar.y, 2.0), floor(vPar.y / 2.0));
   vec4 tx = texture2D(tAtlas, (cell + vUv) * 0.5);
   float rawA = tx.a * vCol.a;
+  if (rawA < 0.005) discard;
   float a = 1.0 - pow(1.0 - clamp(rawA, 0.0, 0.99), uSmokeBoost);
   a *= smoothstep(-0.08, 0.3, (vWP.y - vPar.z) / max(vSize, 1.0));
   a *= smoothstep(0.15, 0.8, vDist / max(vSize, 1.0));
@@ -580,19 +581,16 @@ export function createTabletop({
   model.position.set(-cx * baseScale, plinthDepth * baseScale, -cz * baseScale);
   holder.visible = false;
 
-  const hemi = new THREE.HemisphereLight(0xcfe0f0, 0x51462f, 1.1);
+  const hemi = new THREE.HemisphereLight(0xcfe0f0, 0x51462f, 1.25);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff0d8, 3.6);
   sun.castShadow = false;
   scene.add(sun, sun.target);
   const sunDirWorld = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(60), THREE.MathUtils.degToRad(220));
 
-  // Localized crater vent glow (decay=0 prevents Three.js PBR 1/d² blow-up at 0.65 m tabletop scale)
   const domeX = dome?.x ?? (cx + 90);
   const domeZ = dome?.z ?? (cz - 60);
-  const eruptionLight = new THREE.PointLight(0xff4210, 0, 0.09, 0);
-  eruptionLight.position.set(domeX, 1380, domeZ);
-  model.add(eruptionLight);
+  const craterGlow = { value: 0 };
 
   const tableNormalMat = { value: new THREE.Matrix3() };
   const hasGPUShaders = !!(uniforms && commonGLSL && fragColorGLSL && fragEmisGLSL);
@@ -604,7 +602,7 @@ export function createTabletop({
   let bakeTerrain = null;
 
   if (hasGPUShaders) {
-    const BAKE_N = 768;
+    const BAKE_N = 512;
     const BAKE_STEP = span / BAKE_N;
     const canFloatRT = renderer.capabilities?.isWebGL2 &&
       (renderer.extensions?.has('EXT_color_buffer_float') || renderer.extensions?.has('EXT_color_buffer_half_float'));
@@ -703,11 +701,11 @@ export function createTabletop({
       depthWrite: false,
     });
 
-    bakeTerrain = () => {
+    bakeTerrain = (bakeHeight = true) => {
       const prevXR = renderer.xr.enabled;
       const prevRT = renderer.getRenderTarget();
       renderer.xr.enabled = false;
-      if (rtHeight && bakeHeightMat) {
+      if (bakeHeight && rtHeight && bakeHeightMat) {
         bakeQuad.material = bakeHeightMat;
         renderer.setRenderTarget(rtHeight);
         renderer.render(bakeScene, bakeCam);
@@ -728,10 +726,12 @@ export function createTabletop({
       uTableCenter: { value: new THREE.Vector2(cx, cz) },
       uTableSpan: { value: span },
       uTabletopNMat: tableNormalMat,
+      uDomePos: { value: new THREE.Vector2(domeX, domeZ) },
+      uCraterGlow: craterGlow,
     };
 
-    // Ultra-fast stereo terrain shader (1 VS height/grad tap, 4 FS albedo+micro-grain taps)
-    terrainMat = new THREE.MeshStandardMaterial({ roughness: 0.94, metalness: 0, envMapIntensity: 0.42 });
+    // Ultra-fast stereo terrain shader (1 VS height/grad tap, zero PMREM/PointLight passes)
+    terrainMat = new THREE.MeshStandardMaterial({ roughness: 0.94, metalness: 0, envMapIntensity: 0 });
     terrainMat.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, rtHeight ? liveUniforms : { ...uniforms, ...liveUniforms });
       const vsDecl = rtHeight
@@ -765,7 +765,8 @@ export function createTabletop({
 
       sh.fragmentShader = /* glsl */`
         uniform sampler2D tBakedAlbedo, tNoise;
-        uniform float uExag, uTime;
+        uniform float uExag, uTime, uCraterGlow;
+        uniform vec2 uDomePos;
         uniform mat3 uTabletopNMat;
         varying vec3 vW; varying vec3 vNW; varying vec2 vUvT;
         vec3 gNW = vec3(0.0, 1.0, 0.0);
@@ -786,13 +787,18 @@ export function createTabletop({
             float em = baked.a * 4.6 * pulse;
             totalEmissiveRadiance += mix(vec3(1.0, 0.14, 0.02), vec3(1.0, 0.48, 0.12), clamp(em * 0.35, 0.0, 1.0)) * em;
           }
+          if (uCraterGlow > 0.005) {
+            vec2 cd = vW.xz - uDomePos;
+            float cLit = uCraterGlow * exp(-dot(cd, cd) / 220000.0);
+            totalEmissiveRadiance += vec3(0.95, 0.20, 0.03) * cLit * diffuseColor.rgb;
+          }
         `)
         .replace('#include <normal_fragment_begin>', /* glsl */`
           #include <normal_fragment_begin>
           normal = normalize((viewMatrix * vec4(normalize(uTabletopNMat * gNW), 0.0)).xyz);
         `);
     };
-    terrainMat.customProgramCacheKey = () => 'tabletop-fast-terrain-v2';
+    terrainMat.customProgramCacheKey = () => 'tabletop-fast-terrain-v3';
 
     const terrain = new THREE.Mesh(terrainGeom, terrainMat);
     terrain.frustumCulled = false;
@@ -800,7 +806,7 @@ export function createTabletop({
 
     // Cutaway geological strata skirt
     const skirtGeom = buildTabletopSkirtGeometry(cx, cz, span, 128);
-    const skirtMat = new THREE.MeshStandardMaterial({ roughness: 0.94, side: THREE.DoubleSide });
+    const skirtMat = new THREE.MeshStandardMaterial({ roughness: 0.94, envMapIntensity: 0, side: THREE.DoubleSide });
     skirtMat.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, rtHeight ? liveUniforms : { ...uniforms, ...liveUniforms });
       const vsDecl = rtHeight
@@ -1258,6 +1264,7 @@ export function createTabletop({
   let placed = false;
   let lastP = -1;
   let lastBakedSeq = -1;
+  let lastBakedHeightKey = '';
   let lastBakeAt = 0;
   let lastSmokeSeq = -1;
   let lastLight = '';
@@ -1584,8 +1591,7 @@ export function createTabletop({
     sun.intensity = lightName === 'night' ? 1.15 : lightName === 'dusk' ? 3.1 : 3.7;
     hemi.color.set(lm.hs);
     hemi.groundColor.set(lm.hg);
-    hemi.intensity = lightName === 'night' ? 0.34 : lightName === 'dusk' ? 0.65 : 1.1;
-    if (getEnvTexture) scene.environment = getEnvTexture();
+    hemi.intensity = lightName === 'night' ? 0.42 : lightName === 'dusk' ? 0.76 : 1.25;
     renderer.toneMappingExposure = lightName === 'night' ? 1.48 : lightName === 'dusk' ? 1.05 : 0.80;
     if (tabletopEU) {
       tabletopEU.uSunCol.value.copy(sun.color).multiplyScalar(sun.intensity / Math.PI * 1.45);
@@ -1969,6 +1975,7 @@ export function createTabletop({
 
     renderer.xr.setReferenceSpaceType('local-floor');
     try {
+      try { renderer.xr.setFramebufferScaleFactor?.(0.92); } catch {}
       await renderer.xr.setSession(s);
       try { renderer.xr.setFoveation?.(1.0); } catch {}
     } catch (error) {
@@ -1979,6 +1986,7 @@ export function createTabletop({
     document.body.classList.add('in-xr');
     lastP = -1;
     lastBakedSeq = -1;
+    lastBakedHeightKey = '';
     lastSmokeSeq = -1;
     lastLight = '';
     lastDockKey = '';
@@ -2005,14 +2013,18 @@ export function createTabletop({
       syncLighting(st.light);
     }
 
-    // Re-bake high-detail terrain height & color cache only when timeline state updates
+    // Re-bake terrain cache only when timeline updates (512x512, height pass skipped when dome/era height unchanged)
     if (bakeTerrain) {
       const now = performance.now();
       const seq = st.seq ?? st.p;
-      if (lastBakedSeq !== seq && (lastBakedSeq === -1 || !st.playing || now - lastBakeAt > 65)) {
+      if (lastBakedSeq !== seq && (lastBakedSeq === -1 || !st.playing || now - lastBakeAt > 120)) {
         lastBakedSeq = seq;
         lastBakeAt = now;
-        bakeTerrain();
+        const ds = uniforms.uDomeState?.value;
+        const hKey = `${uniforms.uGrow?.value?.toFixed(4)}|${uniforms.uS?.value?.toFixed(4)}|${ds ? `${ds.x.toFixed(4)},${ds.y.toFixed(4)},${ds.z.toFixed(4)}` : ''}`;
+        const hDirty = hKey !== lastBakedHeightKey;
+        lastBakedHeightKey = hKey;
+        bakeTerrain(hDirty);
       }
     }
 
@@ -2051,13 +2063,18 @@ export function createTabletop({
       m.decompose(holder.position, holder.quaternion, holder.scale);
     }
 
-    // Dual thumbstick & button controls
+    // Dual thumbstick & button controls (zero per-frame array allocations)
     for (const source of session.inputSources) {
       const gp = source.gamepad;
       if (!gp) continue;
-      const prev = lastButtons.get(source) || [];
-      if (gp.buttons[4]?.pressed && !prev[4]) togglePlay();
-      if (gp.buttons[5]?.pressed && !prev[5]) handleAction('placeAgain');
+      let prev = lastButtons.get(source);
+      if (!prev) { prev = [false, false]; lastButtons.set(source, prev); }
+      const b4 = !!gp.buttons[4]?.pressed;
+      const b5 = !!gp.buttons[5]?.pressed;
+      if (b4 && !prev[0]) togglePlay();
+      if (b5 && !prev[1]) handleAction('placeAgain');
+      prev[0] = b4;
+      prev[1] = b5;
 
       const ax = gp.axes.length >= 4 ? gp.axes[2] : (gp.axes[0] || 0);
       const ay = gp.axes.length >= 4 ? gp.axes[3] : (gp.axes[1] || 0);
@@ -2070,7 +2087,6 @@ export function createTabletop({
           if (Math.abs(ay) > 0.22 && setExag && getExag) setExag(clamp(getExag() - ay * dt * 1.4, 1, 4));
         }
       }
-      lastButtons.set(source, gp.buttons.map(b => b.pressed));
     }
 
     // Active continuous drag handlers (sliders, dock grab bar, turntable ring, corner resize, vertical relief)
@@ -2332,11 +2348,9 @@ export function createTabletop({
       ghostMesh.scale.y = stNow.exag || 1;
     }
 
-    eruptionLight.position.y = 1360 * (stNow.exag || 1);
-    eruptionLight.distance = 0.095 * holder.scale.x;
     const hotGlow = (stNow.erupting ? 1 : 0) * (stNow.hot ?? (stNow.phase === 'explosion' ? 1 : 0.4));
     const flicker = 0.85 + 0.15 * Math.sin(performance.now() * 0.011);
-    eruptionLight.intensity = hotGlow > 0.01 ? (0.45 + 1.05 * hotGlow) * flicker * (stNow.light === 'night' ? 1.5 : 1.0) : 0;
+    craterGlow.value = hotGlow > 0.01 ? (0.35 + 0.95 * hotGlow) * flicker * (stNow.light === 'night' ? 1.6 : 1.0) : 0;
 
     // CPU terrain fallback when GPU shaders aren't supplied
     if (terrainColors && (Math.abs(stNow.p - lastP) > 0.001 || lastP < 0)) {
@@ -2383,7 +2397,9 @@ export function createTabletop({
       if (lastSmokeSeq !== seq || angleDiff < 0.997) {
         lastSmokeSeq = seq;
         _lastSmokeFwd.copy(_localFwd);
-        smoke.upload(tabletopEU.uCamPosLocal.value, _localFwd, 2);
+        const liveEst = smoke.activeMax || smoke.max;
+        const stride = liveEst > 2600 ? 3 : liveEst > 1300 ? 2 : 1;
+        smoke.upload(tabletopEU.uCamPosLocal.value, _localFwd, stride);
         glow.upload();
       }
     }

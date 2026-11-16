@@ -342,8 +342,8 @@ body:not(.show-labels) .label { display: none; }
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { createTabletop } from './quest-tabletop.mjs?v=20261116';
-import { eruptionClock, domeEvolution, summitHeight, SUMMIT_GLSL, createEruption } from './eruption-model.mjs?v=20261116';
+import { createTabletop } from './quest-tabletop.mjs?v=20261116b';
+import { eruptionClock, domeEvolution, summitHeight, SUMMIT_GLSL, createEruption } from './eruption-model.mjs?v=20261116b';
 import { clipmapCenter } from './terrain-lod.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Sky } from 'three/addons/objects/Sky.js';
@@ -1096,7 +1096,7 @@ function makeInstanced(max, attrs) {
 const K_PLUME = 0, K_CLOUD = 1, K_DENSE = 2, K_DUST = 3, K_STEAM = 4;
 class Smoke {
   constructor(max) {
-    this.max = max; this.cur = 0;
+    this.max = max; this.cur = 0; this.activeMax = 0;
     const F = () => new Float32Array(max);
     Object.assign(this, { px: F(), py: F(), pz: F(), vx: F(), vy: F(), vz: F(), age: F().fill(1e9), life: F().fill(1), s0: F(), s1: F(),
       cr: F(), cg: F(), cb: F(), ca: F(), heat: F(), rot: F(), rs: F(), vari: F(), gy: F(), shade: F(), size: F(),
@@ -1108,23 +1108,27 @@ class Smoke {
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 10; scene.add(this.mesh);
     this.keys = new Float32Array(max); this.order = new Uint32Array(max); this.bucket = new Uint32Array(1025);
   }
-  spawn(kind, x, y, z, vx, vy, vz, life, s0, s1, c, a, heat = 0) {
+  spawn(kind, x, y, z, vx, vy, vz, life, s0, s1, c, a, heat = 0, groundY = null) {
     const i = this.cur; this.cur = (i + 1) % this.max;
+    if (i + 1 > this.activeMax) this.activeMax = i + 1;
     this.kind[i] = kind; this.px[i] = x; this.py[i] = y; this.pz[i] = z; this.vx[i] = vx; this.vy[i] = vy; this.vz[i] = vz;
     this.age[i] = 0; this.life[i] = life; this.s0[i] = s0; this.s1[i] = s1;
-    const j = 1;
-    this.cr[i] = c[0] * j; this.cg[i] = c[1] * j; this.cb[i] = c[2] * j; this.ca[i] = a; this.heat[i] = heat;
+    this.cr[i] = c[0]; this.cg[i] = c[1]; this.cb[i] = c[2]; this.ca[i] = a; this.heat[i] = heat;
     this.rot[i] = 0; this.rs[i] = 0; this.vari[i] = 0;
-    this.gy[i] = heightAt(x, z) * exag; this.shade[i] = 1; this.pid[i] = -1; this.y0[i] = y; this.size[i] = s0;
+    this.gy[i] = (groundY !== null ? groundY : bil(D, ND, x, z)) * exag;
+    this.shade[i] = 1; this.pid[i] = -1; this.y0[i] = y; this.size[i] = s0;
     return i;
   }
-  clear() { this.age.fill(1e9); this.g.instanceCount = 0; }
+  clear() {
+    if (this.activeMax > 0) this.age.fill(1e9, 0, this.activeMax);
+    this.cur = 0; this.activeMax = 0; this.g.instanceCount = 0;
+  }
   // sort far-to-near with a 1024-bucket counting sort and fill the instance buffers
   upload(cam, fwd = camFwd, stride = 1) {
     const fx = fwd.x, fy = fwd.y, fz = fwd.z, cx = cam.x, cy = cam.y, cz = cam.z;
     let n = 0, dmin = 1e9, dmax = -1e9;
-    const step = Math.max(1, stride | 0);
-    for (let i = 0; i < this.max; i += step) {
+    const step = Math.max(1, stride | 0), limit = this.activeMax;
+    for (let i = 0; i < limit; i += step) {
       if (this.age[i] >= this.life[i]) continue;
       const d = (this.px[i] - cx) * fx + (this.py[i] - cy) * fy + (this.pz[i] - cz) * fz;
       this.keys[i] = d; this.order[n++] = i; if (d < dmin) dmin = d; if (d > dmax) dmax = d;
@@ -1144,13 +1148,17 @@ class Smoke {
       A.iPar[k * 4] = this.heat[i]; A.iPar[k * 4 + 1] = this.vari[i]; A.iPar[k * 4 + 2] = this.gy[i]; A.iPar[k * 4 + 3] = this.shade[i];
     }
     this.g.instanceCount = n;
-    for (const a of Object.values(this.g.attributes)) if (a.isInstancedBufferAttribute) { a.needsUpdate = true; a.addUpdateRange?.(0, n * a.itemSize); }
+    for (const a of Object.values(this.g.attributes)) if (a.isInstancedBufferAttribute) {
+      a.clearUpdateRanges?.();
+      if (n > 0) a.addUpdateRange?.(0, n * a.itemSize);
+      a.needsUpdate = true;
+    }
   }
 }
 // Glowing blocks and bombs. kind: 0 ballistic, 1 rolling, 2 riding a flow
 class Glow {
   constructor(max) {
-    this.max = max; this.cur = 0;
+    this.max = max; this.cur = 0; this.activeMax = 0;
     const F = () => new Float32Array(max);
     Object.assign(this, { px: F(), py: F(), pz: F(), vx: F(), vy: F(), vz: F(), age: F().fill(1e9), life: F().fill(1), size: F(), temp: F(),
       kind: new Uint8Array(max), pid: new Int8Array(max), ps: F(), pl: F(), pv: F(), pmax: F(), hop: F() });
@@ -1162,14 +1170,19 @@ class Glow {
   }
   spawn(kind, x, y, z, vx, vy, vz, life, size, temp = 1) {
     const i = this.cur; this.cur = (i + 1) % this.max;
+    if (i + 1 > this.activeMax) this.activeMax = i + 1;
     this.kind[i] = kind; this.px[i] = x; this.py[i] = y; this.pz[i] = z; this.vx[i] = vx; this.vy[i] = vy; this.vz[i] = vz;
     this.age[i] = 0; this.life[i] = life; this.size[i] = size; this.temp[i] = temp; this.pid[i] = -1; this.hop[i] = 0;
     return i;
   }
-  clear() { this.age.fill(1e9); this.g.instanceCount = 0; }
+  clear() {
+    if (this.activeMax > 0) this.age.fill(1e9, 0, this.activeMax);
+    this.cur = 0; this.activeMax = 0; this.g.instanceCount = 0;
+  }
   upload() {
     const A = this.arr; let n = 0;
-    for (let i = 0; i < this.max; i++) {
+    const limit = this.activeMax;
+    for (let i = 0; i < limit; i++) {
       if (this.age[i] >= this.life[i]) continue;
       const T = this.temp[i] * (1 - smooth(0.5, 1, this.age[i] / this.life[i]));
       A.iPos[n * 3] = this.px[i]; A.iPos[n * 3 + 1] = this.py[i]; A.iPos[n * 3 + 2] = this.pz[i];
@@ -1180,7 +1193,11 @@ class Glow {
       n++;
     }
     this.g.instanceCount = n;
-    for (const a of Object.values(this.g.attributes)) if (a.isInstancedBufferAttribute) a.needsUpdate = true;
+    for (const a of Object.values(this.g.attributes)) if (a.isInstancedBufferAttribute) {
+      a.clearUpdateRanges?.();
+      if (n > 0) a.addUpdateRange?.(0, n * a.itemSize);
+      a.needsUpdate = true;
+    }
   }
 }
 const camFwd = new THREE.Vector3();
@@ -1706,8 +1723,23 @@ function updateLOD() {
 // direct seeking, reverse scrubbing and replay all give the same snapshot.
 const routeState=state(P3);
 const eruption=createEruption(ERUPTION_GEOMETRY,(x,z)=>heightAt(x,z,routeState));
+const PG_N = 384;
+let paleoBaseCache = null;
+function fastEruptionSurface(x, z) {
+  const dx = x - DOME.x, dz = z - DOME.z;
+  if (dx * dx + dz * dz < 2850 * 2850) return heightAt(x, z);
+  if (!paleoBaseCache) {
+    paleoBaseCache = new Float32Array(PG_N * PG_N);
+    for (let r = 0; r < PG_N; r++) {
+      const gz = -HALF + (r / (PG_N - 1)) * SIZE;
+      for (let c = 0; c < PG_N; c++) paleoBaseCache[r * PG_N + c] = heightAt(-HALF + (c / (PG_N - 1)) * SIZE, gz, routeState);
+    }
+  }
+  return bil(paleoBaseCache, PG_N, x, z);
+}
 let eruptionSeq = 0;
 let hadDep = false, hadFall = false;
+let lastDepCount = 0, lastFallCount = 0, lastPaintClock = -1e9, lastDepHeatClock = -1e9;
 function renderEruption() {
   eruptionSeq++;
   smoke.clear(); glow.clear();
@@ -1716,26 +1748,44 @@ function renderEruption() {
   U.uTime.value=effectTime; EU.uTimeS.value=effectTime;
   let wroteDep = false, wroteFall = false;
   if(active) {
-    const snapshot=eruption.sample(S.clock,(x,z)=>heightAt(x,z));
+    const snapshot=eruption.sample(S.clock,fastEruptionSurface);
     for(const d of snapshot.smoke) {
-      const i=smoke.spawn(d.kind,d.x,d.y*exag,d.z,0,0,0,1,d.size,d.size,d.color,d.alpha,d.heat);
+      const i=smoke.spawn(d.kind,d.x,d.y*exag,d.z,0,0,0,1,d.size,d.size,d.color,d.alpha,d.heat,d.gy??null);
       smoke.age[i]=.25; smoke.size[i]=d.size; smoke.rot[i]=d.seed; smoke.vari[i]=Math.abs(Math.floor(d.seed*17))%4;
       smoke.shade[i]=d.kind===2?.7:1;
     }
     for(const d of snapshot.glow) { const i=glow.spawn(0,d.x,d.y*exag,d.z,d.vx,d.vy*exag,d.vz,1,d.size,d.temp); glow.age[i]=.1; }
+    const forward = S.clock >= lastPaintClock;
     if (snapshot.flowDeposits.length > 0) {
-      depData.fill(0);
-      for(const d of snapshot.flowDeposits)paintDeposit(depData,DEP_N,DEP_S,DEP_X,DEP_Z,d,2);
-      tDep.needsUpdate=true; wroteDep = true; hadDep = true;
+      if (!hadDep || !forward || snapshot.flowDeposits.length !== lastDepCount || Math.abs(S.clock - lastDepHeatClock) >= 6) {
+        depData.fill(0);
+        for(const d of snapshot.flowDeposits)paintDeposit(depData,DEP_N,DEP_S,DEP_X,DEP_Z,d,2);
+        tDep.needsUpdate=true;
+        lastDepCount = snapshot.flowDeposits.length;
+        lastDepHeatClock = S.clock;
+      }
+      wroteDep = true; hadDep = true;
     }
     if (snapshot.ashDeposits.length > 0) {
-      fallData.fill(0);
-      for(const d of snapshot.ashDeposits)paintDeposit(fallData,FALL_N,FALL_S,FALL_X,FALL_Z,d,1);
-      tFallout.needsUpdate=true; wroteFall = true; hadFall = true;
+      if (hadFall && forward && snapshot.ashDeposits.length >= lastFallCount) {
+        if (snapshot.ashDeposits.length > lastFallCount) {
+          for (let idx = lastFallCount; idx < snapshot.ashDeposits.length; idx++) {
+            paintDeposit(fallData, FALL_N, FALL_S, FALL_X, FALL_Z, snapshot.ashDeposits[idx], 1);
+          }
+          tFallout.needsUpdate = true;
+        }
+      } else {
+        fallData.fill(0);
+        for(const d of snapshot.ashDeposits)paintDeposit(fallData,FALL_N,FALL_S,FALL_X,FALL_Z,d,1);
+        tFallout.needsUpdate=true;
+      }
+      lastFallCount = snapshot.ashDeposits.length;
+      wroteFall = true; hadFall = true;
     }
+    lastPaintClock = S.clock;
   }
-  if (!wroteDep && hadDep) { depData.fill(0); tDep.needsUpdate=true; hadDep = false; }
-  if (!wroteFall && hadFall) { fallData.fill(0); tFallout.needsUpdate=true; hadFall = false; }
+  if (!wroteDep && hadDep) { depData.fill(0); tDep.needsUpdate=true; hadDep = false; lastDepCount = 0; lastDepHeatClock = -1e9; }
+  if (!wroteFall && hadFall) { fallData.fill(0); tFallout.needsUpdate=true; hadFall = false; lastFallCount = 0; }
 }
 
 let slowT = 0, fastT = 0;
