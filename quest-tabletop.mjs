@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 
 export const DOCK_W = 1600;
-export const DOCK_H = 260;
+export const DOCK_H = 330;
+const DESK_SCALE = 0.65;
+const MODEL_WIDTH = 0.65;
 export const DRAWER_W = 1360;
 export const DRAWER_H = 420;
 
@@ -11,7 +13,7 @@ export const PANEL_H = DOCK_H;
 
 export const STAGE_PILLS = [
   { id: 'before', label: 'Before', sub: '15.3 Ma', anchor: 0, c: '#7e8270', c2: '#7e8270' },
-  { id: 'growth', label: 'Growth', sub: '15.0–14.4', anchor: 0.18, c: '#6c6661', c2: '#7d746b' },
+  { id: 'growth', label: 'Growth', sub: '15.0–14.4 Ma', anchor: 0.18, c: '#6c6661', c2: '#7d746b' },
   { id: 'dome', label: 'Dome', sub: '14 days', anchor: 0.33, c: '#b4441d', c2: '#e06a2c' },
   { id: 'explosion', label: 'Explosion', sub: '0–2 min', anchor: 0.381, c: '#ff8a3d', c2: '#ff8a3d' },
   { id: 'collapse', label: 'Collapse', sub: '2–12 min', anchor: 0.45, c: '#9a5a3a', c2: '#8d7d6e' },
@@ -23,14 +25,14 @@ export const STAGE_PILLS = [
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 export const DOCK_LAYOUT = [
-  { id: 'playPause', kind: 'button', x0: 32, y0: 66, x1: 148, y1: 194 },
-  { id: 'prevStage', kind: 'button', x0: 168, y0: 44, x1: 230, y1: 108 },
-  { id: 'nextStage', kind: 'button', x0: 816, y0: 44, x1: 878, y1: 108 },
-  { id: 'timeline', kind: 'slider', x0: 168, y0: 128, x1: 878, y1: 220, tx0: 190, tx1: 856 },
-  { id: 'drawerStages', kind: 'button', x0: 912, y0: 70, x1: 1076, y1: 190 },
-  { id: 'drawerView', kind: 'button', x0: 1090, y0: 70, x1: 1244, y1: 190 },
-  { id: 'placeAgain', kind: 'button', x0: 1258, y0: 70, x1: 1358, y1: 190 },
-  { id: 'exitVR', kind: 'button', x0: 1372, y0: 70, x1: 1568, y1: 190 },
+  { id: 'playPause', kind: 'button', x0: 28, y0: 56, x1: 166, y1: 220 },
+  { id: 'prevStage', kind: 'button', x0: 194, y0: 57, x1: 280, y1: 147 },
+  { id: 'nextStage', kind: 'button', x0: 858, y0: 57, x1: 944, y1: 147 },
+  { id: 'timeline', kind: 'slider', x0: 194, y0: 156, x1: 944, y1: 239, tx0: 213, tx1: 925 },
+  { id: 'drawerStages', kind: 'button', x0: 974, y0: 56, x1: 1132, y1: 220 },
+  { id: 'drawerView', kind: 'button', x0: 1140, y0: 56, x1: 1287, y1: 220 },
+  { id: 'placeAgain', kind: 'button', x0: 1295, y0: 56, x1: 1441, y1: 220 },
+  { id: 'exitVR', kind: 'button', x0: 1449, y0: 56, x1: 1572, y1: 220 },
 ];
 
 export const DRAWER_STAGES_LAYOUT = (() => {
@@ -88,6 +90,26 @@ export const DRAWER_VIEW_LAYOUT = [
 ];
 
 export const PANEL_LAYOUT = DOCK_LAYOUT;
+
+// WebXR exposes the hit surface normal as the Y column of its pose matrix.
+export function isDeskSurface(matrix) {
+  return matrix?.[5] >= Math.cos(Math.PI / 9);
+}
+
+// Map the starting hand midpoint to the current midpoint in the plane of the
+// desk. Use the clamped scale in the position transform to retain the pivot
+// even when the hands keep spreading past the zoom limit.
+export function applyDeskGesture(holder, start, midpoint, distance, angle) {
+  const scale = clamp(start.scale * distance / start.distance, 0.25, 3.5);
+  const ratio = scale / start.scale;
+  const turn = angle - start.angle;
+  const dx = (start.position.x - start.mid.x) * ratio;
+  const dz = (start.position.z - start.mid.z) * ratio;
+  holder.position.set(midpoint.x + dx * Math.cos(turn) + dz * Math.sin(turn), start.position.y,
+    midpoint.z - dx * Math.sin(turn) + dz * Math.cos(turn));
+  holder.scale.setScalar(scale);
+  holder.rotation.y = start.yaw + turn;
+}
 
 export function hitTestSurface(layout, width, height, u, v) {
   if (!Number.isFinite(u) || !Number.isFinite(v) || u < 0 || u > 1 || v < 0 || v > 1) return null;
@@ -275,7 +297,7 @@ function createTurntableTexture() {
   ctx.beginPath();
   ctx.arc(cx, cy, S * 0.484, 0, Math.PI * 2);
   ctx.arc(cx, cy, S * 0.460, 0, Math.PI * 2, true);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.fillStyle = '#263f40';
   ctx.fill();
 
   for (let deg = 0; deg < 360; deg += 5) {
@@ -284,18 +306,18 @@ function createTurntableTexture() {
     const mid = deg % 15 === 0;
     const r0 = S * (major ? 0.463 : mid ? 0.467 : 0.471);
     const r1 = S * 0.476;
-    ctx.strokeStyle = deg === 0 ? 'rgba(255,255,255,0.95)' : major ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.18)';
-    ctx.lineWidth = deg === 0 ? 4 : major ? 2 : 1;
+    ctx.strokeStyle = deg === 0 ? '#ffb278' : major ? '#d6eee6' : '#799c97';
+    ctx.lineWidth = deg === 0 ? 6 : major ? 4 : 2;
     ctx.beginPath();
     ctx.moveTo(cx + Math.cos(rad) * r0, cy + Math.sin(rad) * r0);
     ctx.lineTo(cx + Math.cos(rad) * r1, cy + Math.sin(rad) * r1);
     ctx.stroke();
   }
 
-  ctx.font = '600 20px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
+  ctx.font = '700 24px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const [deg, lbl, col] of [[0, 'N', '#ffffff'], [90, 'E', 'rgba(255,255,255,0.62)'], [180, 'S', 'rgba(255,255,255,0.62)'], [270, 'W', 'rgba(255,255,255,0.62)']]) {
+  for (const [deg, lbl, col] of [[0, 'N', '#ffb278'], [90, 'E', '#d6eee6'], [180, 'S', '#d6eee6'], [270, 'W', '#d6eee6']]) {
     const rad = (deg - 90) * Math.PI / 180;
     const r = S * 0.482;
     ctx.save();
@@ -584,7 +606,7 @@ export function createTabletop({
   scene.add(holder);
   holder.add(model);
 
-  const baseScale = 0.65 / span;
+  const baseScale = MODEL_WIDTH / span;
   const plinthDepth = 180;
   model.scale.setScalar(baseScale);
   model.position.set(-cx * baseScale, plinthDepth * baseScale, -cz * baseScale);
@@ -902,7 +924,7 @@ export function createTabletop({
   const turntableTex = createTurntableTexture();
   const turntableRing = new THREE.Mesh(
     new THREE.RingGeometry(0.466, 0.500, 80).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ map: turntableTex, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: turntableTex, toneMapped: false, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }),
   );
   turntableRing.position.y = 0.002;
   holder.add(turntableRing);
@@ -922,7 +944,7 @@ export function createTabletop({
   modelHitBox.position.y = 0.065;
   holder.add(modelHitBox);
 
-  // Minimalist visionOS frosted-pearl corner handles (resize + rotate with 1 or 2 hands)
+  // Four fixed-size corner handles for single-contact resizing.
   const cornerHandles = [];
   const cornerHitMeshes = [];
   const cornerCoords = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
@@ -931,7 +953,7 @@ export function createTabletop({
     const group = new THREE.Group();
     group.position.set(sx * cornerOffset, 0.012, sz * cornerOffset);
 
-    const armMat = new THREE.MeshBasicMaterial({ color: 0xf5f7fa, transparent: true, opacity: 0.32 });
+    const armMat = new THREE.MeshBasicMaterial({ color: 0x8ae6c6, toneMapped: false, transparent: true, opacity: 0.32 });
     const armLen = 0.042;
     const armX = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.0035, 0.004), armMat);
     armX.position.set(-sx * (armLen * 0.5 - 0.002), -0.004, 0);
@@ -953,7 +975,7 @@ export function createTabletop({
     group.add(ring);
 
     const hitSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.055, 10, 10),
+      new THREE.SphereGeometry(0.034, 10, 10),
       new THREE.MeshBasicMaterial({ visible: false }),
     );
     group.add(hitSphere);
@@ -964,7 +986,7 @@ export function createTabletop({
     cornerHitMeshes.push(hitSphere);
   }
 
-  // Minimalist visionOS glass floating pill badge shown while manipulating the 3D model
+  // Physical size and rotation feedback at the model.
   const badgeCanvas = document.createElement('canvas');
   badgeCanvas.width = 320;
   badgeCanvas.height = 76;
@@ -1123,19 +1145,54 @@ export function createTabletop({
     model.add(glowMesh);
   }
 
-  // Placement reticle with clean visionOS pearl rings
+  // A true-size outline makes it possible to check desk clearance before placing.
   const reticle = new THREE.Group();
   reticle.visible = false;
-  const rInner = new THREE.Mesh(
-    new THREE.RingGeometry(0.022, 0.030, 48).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
-  );
-  const rOuter = new THREE.Mesh(
-    new THREE.RingGeometry(0.32, 0.325, 64).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.40, side: THREE.DoubleSide }),
-  );
-  reticle.add(rInner, rOuter);
+  const footprint = MODEL_WIDTH * DESK_SCALE;
+  const edging = new THREE.MeshBasicMaterial({ color: 0x92e3cb, toneMapped: false });
+  for (const side of [-1, 1]) {
+    const across = new THREE.Mesh(new THREE.BoxGeometry(footprint, 0.002, 0.003), edging);
+    across.position.z = side * footprint / 2;
+    const along = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.002, footprint), edging);
+    along.position.x = side * footprint / 2;
+    reticle.add(across, along);
+  }
+  const centerMark = new THREE.Mesh(new THREE.RingGeometry(0.009, 0.013, 32).rotateX(-Math.PI / 2), edging);
+  reticle.add(centerMark);
   scene.add(reticle);
+
+  const guideCanvas = document.createElement('canvas');
+  guideCanvas.width = 1024;
+  guideCanvas.height = 216;
+  const guideCtx = guideCanvas.getContext('2d');
+  const guideTexture = new THREE.CanvasTexture(guideCanvas);
+  guideTexture.colorSpace = THREE.SRGBColorSpace;
+  const guide = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.0802),
+    new THREE.MeshBasicMaterial({ map: guideTexture, transparent: true, toneMapped: false, depthTest: false }));
+  guide.visible = false;
+  guide.renderOrder = 26;
+  scene.add(guide);
+  let guideMode = '';
+  function drawGuide(mode) {
+    if (guideMode === mode) return;
+    guideMode = mode;
+    const g = guideCtx;
+    g.clearRect(0, 0, 1024, 216);
+    rrect(g, 2, 2, 1020, 212, 26);
+    g.fillStyle = '#132727';
+    g.fill();
+    g.fillStyle = '#91dfc6';
+    g.font = '600 28px system-ui';
+    g.fillText('BÖRZSÖNY   /   42 CM TERRAIN', 32, 49);
+    g.fillStyle = '#f6f3e9';
+    g.font = '600 47px system-ui';
+    g.fillText(mode === 'surface' ? 'Place on this surface' : 'Look at a clear desk', 32, 115);
+    g.fillStyle = '#c4d6d0';
+    g.font = '32px system-ui';
+    g.fillText(mode === 'surface' ? 'Pinch or pull the trigger to set it down.' :
+      'Or select with your hand or controller at desk height.', 32, 173);
+    guideTexture.needsUpdate = true;
+  }
 
   // Near-field bare-hand pinch indicator spheres (for WebXR hand tracking)
   const handPinchOrbs = [0, 1].map(() => {
@@ -1148,18 +1205,18 @@ export function createTabletop({
     return m;
   });
 
-  // Apple visionOS Spatial Control Bar + Floating Sheet + 90 Hz Pearl Playhead
+  // Desk console, chapter/view sheet and independently animated playhead.
   const uiRoot = new THREE.Group();
   uiRoot.visible = false;
   scene.add(uiRoot);
 
   const dockPivot = new THREE.Group();
-  dockPivot.rotation.x = -0.46;
+  dockPivot.rotation.x = -0.82;
   uiRoot.add(dockPivot);
 
-  const dockPhysW = 0.52;
+  const dockPhysW = 0.42;
   const dockPhysH = dockPhysW * (DOCK_H / DOCK_W);
-  const dockRadius = dockPhysH * 0.48;
+  const dockRadius = 0.009;
   const dockCanvas = document.createElement('canvas');
   dockCanvas.width = DOCK_W;
   dockCanvas.height = DOCK_H;
@@ -1184,7 +1241,7 @@ export function createTabletop({
 
   const dockMesh = new THREE.Mesh(
     createRoundedPanelGeometry(dockPhysW, dockPhysH, dockRadius),
-    new THREE.MeshBasicMaterial({ map: dockTex, transparent: true, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ map: dockTex, toneMapped: false, transparent: true, side: THREE.DoubleSide }),
   );
   dockPivot.add(dockMesh);
 
@@ -1203,9 +1260,9 @@ export function createTabletop({
   timelinePlayhead.position.z = 0.0035;
   dockPivot.add(timelinePlayhead);
 
-  // visionOS bottom window grab bar beneath the control bar
+  // Separate grab target beneath the console.
   const dockGrabPill = new THREE.Mesh(
-    createRoundedPanelGeometry(0.135, 0.008, 0.004),
+    createRoundedPanelGeometry(0.082, 0.005, 0.0025),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.42, side: THREE.DoubleSide }),
   );
   dockGrabPill.position.set(0, -dockPhysH * 0.5 - 0.018, 0.002);
@@ -1219,11 +1276,13 @@ export function createTabletop({
   dockPivot.add(dockGrabHitMesh);
 
   const drawerPivot = new THREE.Group();
-  drawerPivot.position.set(0, dockPhysH * 0.5 + 0.090, 0.005);
+  // Keep the summit in sight while adjusting relief or choosing a chapter.
+  drawerPivot.position.set(-0.335, dockPhysH * 0.5 + 0.090, 0.005);
+  drawerPivot.rotation.y = 0.18;
   drawerPivot.visible = false;
   dockPivot.add(drawerPivot);
 
-  const drawerPhysW = 0.48;
+  const drawerPhysW = 0.42;
   const drawerPhysH = drawerPhysW * (DRAWER_H / DRAWER_W);
   const drawerCanvas = document.createElement('canvas');
   drawerCanvas.width = DRAWER_W;
@@ -1249,7 +1308,7 @@ export function createTabletop({
 
   const drawerMesh = new THREE.Mesh(
     createRoundedPanelGeometry(drawerPhysW, drawerPhysH, 0.028),
-    new THREE.MeshBasicMaterial({ map: drawerTex, transparent: true, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ map: drawerTex, toneMapped: false, transparent: true, side: THREE.DoubleSide }),
   );
   drawerPivot.add(drawerMesh);
 
@@ -1284,8 +1343,6 @@ export function createTabletop({
   const _up = new THREE.Vector3(0, 1, 0);
   const _rotMat4 = new THREE.Matrix4();
   const _lastSmokeFwd = new THREE.Vector3();
-  const _p0 = new THREE.Vector3();
-  const _p1 = new THREE.Vector3();
 
   let savedCamera = null;
   let session = null;
@@ -1299,20 +1356,22 @@ export function createTabletop({
   let lastSmokeSeq = -1;
   let lastLight = '';
   let lastDockKey = '';
+  let lastDockDraw = -Infinity;
   let lastDrawerKey = '';
   let grab = null;
   let two = null;
-  let anchor = null;
+  const deskOrigin = new THREE.Vector3();
+  const dockHome = new THREE.Vector3();
+  let dockLateralOffset = 0;
+  let homeYaw = 0;
   let generation = 0;
-  let uiYaw = 0;
-  let dockLift = 0;
   let dockUserYOffset = 0;
   let dockUserDistOffset = 0;
   let openDrawer = null; // null | 'stages' | 'view'
   let drawerAnim = 0;
   let activeSlider = null; // { controller, surface: 'dock'|'drawer', id }
   let ringDrag = null;     // { controller, startAngle, startYaw }
-  let cornerDrag = null;   // { controller, cornerIndex, startDist, startScale, startAngle, startYaw }
+  let cornerDrag = null;
   let modelPanDrag = null; // { controller, startHit, startPos }
   let reliefDrag = null;   // { controller }
   let dockDrag = null;     // { controller, startRayDist, startPoint, startYOff, startDistOff }
@@ -1326,16 +1385,26 @@ export function createTabletop({
   let prevHoverSig = '';
   let lastScrubPhase = '';
   const lastButtons = new Map();
-  const handPinchState = [
-    { pinching: false, pos: new THREE.Vector3() },
-    { pinching: false, pos: new THREE.Vector3() },
-  ];
+  // Native select events own a pinch from start to release. Joint poses only
+  // supply the contact position, so a menu pinch cannot also move the terrain.
+  const contacts = [0, 1].map(() => ({
+    joint: new THREE.Vector3(), jointTracked: false, point: new THREE.Vector3(), mode: null,
+  }));
+
+  function clearManipulation() {
+    for (const c of controllers) {
+      c.userData.grab = false;
+      c.userData.modelSelect = false;
+    }
+    for (const contact of contacts) contact.mode = null;
+    two = grab = activeSlider = ringDrag = cornerDrag = modelPanDrag = reliefDrag = dockDrag = null;
+  }
 
   function pulseHaptic(controller, intensity = 0.25, duration = 14) {
     try {
       if (!session || !controller) return;
       const idx = controllers.indexOf(controller);
-      const src = session.inputSources?.[idx];
+      const src = controllers[idx]?.userData.source;
       src?.gamepad?.hapticActuators?.[0]?.pulse?.(intensity, duration);
     } catch {
       // Haptics optional across XR devices
@@ -1350,7 +1419,7 @@ export function createTabletop({
   const scaleToT = s => clamp(Math.log(clampScale(s) / 0.25) / Math.log(3.5 / 0.25), 0, 1);
   const tToScale = t => clampScale(0.25 * Math.pow(3.5 / 0.25, clamp(t, 0, 1)));
   const normalizedYawDeg = () => {
-    const deg = Math.round(((-holder.rotation.y * 180 / Math.PI) % 360 + 360) % 360);
+    const deg = Math.round((((homeYaw - holder.rotation.y) * 180 / Math.PI) % 360 + 360) % 360);
     return deg === 360 ? 0 : deg;
   };
 
@@ -1382,12 +1451,14 @@ export function createTabletop({
     } else if (id === 'speed4') {
       setSpeed?.(4);
     } else if (id === 'resetView') {
-      holder.scale.setScalar(1);
-      holder.rotation.set(0, 0, 0);
+      clearManipulation();
+      holder.position.copy(deskOrigin);
+      holder.scale.setScalar(DESK_SCALE);
+      holder.rotation.set(0, homeYaw, 0);
+      dockLateralOffset = 0;
       dockUserYOffset = 0;
       dockUserDistOffset = 0;
       setExag?.(1);
-      setSpeed?.(1);
     } else if (id === 'placeAgain') {
       placed = false;
       holder.visible = false;
@@ -1399,14 +1470,9 @@ export function createTabletop({
       drawerAnim = 0;
       dockUserYOffset = 0;
       dockUserDistOffset = 0;
-      activeSlider = null;
-      ringDrag = null;
-      cornerDrag = null;
-      modelPanDrag = null;
-      reliefDrag = null;
-      dockDrag = null;
-      anchor?.delete?.();
-      anchor = null;
+      clearManipulation();
+      guide.visible = false;
+      reticle.visible = false;
     } else if (id.startsWith('stage:')) {
       const ph = id.slice(6);
       const b = stageBands.find(x => x.phase === ph) || STAGE_PILLS.find(x => x.id === ph);
@@ -1418,7 +1484,7 @@ export function createTabletop({
     } else if (id === 'scale20') {
       holder.scale.setScalar(2.0);
     } else if (id === 'rotNorth') {
-      holder.rotation.set(0, 0, 0);
+      holder.rotation.set(0, homeYaw, 0);
     } else if (id === 'exag1') {
       setExag?.(1);
     } else if (id === 'exag15') {
@@ -1449,7 +1515,7 @@ export function createTabletop({
     } else if (id === 'scaleSlider') {
       holder.scale.setScalar(tToScale(t));
     } else if (id === 'rotSlider') {
-      holder.rotation.y = (0.5 - clamp(t, 0, 1)) * Math.PI * 2;
+      holder.rotation.y = homeYaw + (0.5 - clamp(t, 0, 1)) * Math.PI * 2;
     } else if (id === 'exagSlider') {
       setExag?.(1 + clamp(t, 0, 1) * 3);
     }
@@ -1471,6 +1537,7 @@ export function createTabletop({
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -2.0)]),
       lineMat,
     );
+    c.userData.line = line;
     c.userData.lineMat = lineMat;
     c.add(line);
 
@@ -1481,15 +1548,29 @@ export function createTabletop({
     c.userData.tipMat = tip.material;
     c.add(tip);
 
+    const contact = contacts[i];
+    c.addEventListener('connected', e => { c.userData.source = e.data; });
     c.addEventListener('selectstart', () => {
       if (!session) return;
       if (!placed) {
-        holder.position.copy(reticle.visible ? reticle.position : c.position);
+        if (reticle.visible) holder.position.copy(reticle.position);
+        else if (contact.jointTracked) holder.position.copy(contact.joint);
+        else if (c.visible && !c.userData.source?.hand) c.getWorldPosition(holder.position);
+        else return;
+        deskOrigin.copy(holder.position);
         const eye = renderer.xr.getCamera(camera).getWorldPosition(_v);
         const yaw = Math.atan2(eye.x - holder.position.x, eye.z - holder.position.z);
         holder.rotation.set(0, yaw, 0);
-        uiYaw = yaw;
-        holder.scale.setScalar(1);
+        homeYaw = yaw;
+        // Park the console on the operator's side. Zooming or turning the
+        // mountain should never carry the controls into the operator's lap.
+        dockHome.copy(deskOrigin);
+        const reach = clamp(Math.hypot(eye.x - deskOrigin.x, eye.z - deskOrigin.z) - 0.24, 0.18, 0.30);
+        dockHome.x += Math.sin(yaw) * reach;
+        dockHome.z += Math.cos(yaw) * reach;
+        dockLateralOffset = 0;
+        guide.visible = false;
+        holder.scale.setScalar(DESK_SCALE);
         holder.visible = true;
         uiRoot.visible = true;
         placed = true;
@@ -1500,145 +1581,62 @@ export function createTabletop({
         return;
       }
 
+      if (c.userData.grab || activeSlider || dockDrag || reliefDrag) return;
       controllerRay(c);
 
-      // 1. Open drawer hit
-      if (openDrawer && drawerPivot.visible) {
-        const dHit = raycaster.intersectObject(drawerMesh)[0];
-        if (dHit?.uv) {
-          const layout = openDrawer === 'stages' ? DRAWER_STAGES_LAYOUT : DRAWER_VIEW_LAYOUT;
-          const hit = hitTestSurface(layout, DRAWER_W, DRAWER_H, dHit.uv.x, dHit.uv.y);
-          if (hit) {
-            if (hit.kind === 'slider') {
-              activeSlider = { controller: c, surface: 'drawer', id: hit.id };
-              applySlider(hit.id, hit.t, c);
-              pulseHaptic(c, 0.25, 14);
-            } else {
-              handleAction(hit.id, c);
-            }
-            lastDrawerKey = '';
-            lastDockKey = '';
-            return;
-          }
-        }
-      }
-
-      // 2. Control bar dock hit
-      const dockHit = raycaster.intersectObject(dockMesh)[0];
-      if (dockHit?.uv) {
-        const hit = hitTestSurface(DOCK_LAYOUT, DOCK_W, DOCK_H, dockHit.uv.x, dockHit.uv.y);
-        if (hit) {
-          if (hit.kind === 'slider') {
-            activeSlider = { controller: c, surface: 'dock', id: hit.id };
-            lastScrubPhase = state().phase;
-            applySlider(hit.id, hit.t, c);
-            pulseHaptic(c, 0.25, 14);
-          } else {
-            handleAction(hit.id, c);
-          }
-          lastDockKey = '';
-          lastDrawerKey = '';
-          return;
-        }
-      }
-
-      // 3. Window grab bar beneath dock
-      const grabHit = raycaster.intersectObject(dockGrabHitMesh)[0];
-      if (grabHit) {
-        dockDrag = {
-          controller: c,
-          startRayDist: grabHit.distance,
-          startPoint: grabHit.point.clone(),
-          startYOff: dockUserYOffset,
-          startDistOff: dockUserDistOffset,
-        };
-        pulseHaptic(c, 0.3, 16);
-        return;
-      }
-
-      // 4. Vertical relief handle (when visible)
-      if (reliefRoot.visible) {
-        const relHit = raycaster.intersectObject(reliefHitMesh)[0];
-        if (relHit) {
-          reliefDrag = { controller: c };
-          pulseHaptic(c, 0.3, 16);
-          return;
-        }
-      }
-
-      // If the other hand/controller is ALREADY manipulating the model, pinching/clicking joins 2-hand zoom/rotate/move!
-      const other = controllers[1 - i];
-      if (other && (other.userData.grab || other.userData.modelSelect)) {
-        c.userData.modelSelect = true;
-        two = null;
-        ringDrag = null;
-        cornerDrag = null;
-        modelPanDrag = null;
-        pulseHaptic(c, 0.35, 16);
-        return;
-      }
-
-      // 5. Direct 3D corner handles (1-hand radial resize + rotation, or 2-hand zoom)
-      const cHit = raycaster.intersectObjects(cornerHitMeshes, false)[0];
-      if (cHit) {
-        c.userData.modelSelect = true;
-        _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
-        const hasPlane = raycaster.ray.intersectPlane(_plane, _hitW);
-        const dx = (hasPlane ? _hitW.x : cHit.point.x) - holder.position.x;
-        const dz = (hasPlane ? _hitW.z : cHit.point.z) - holder.position.z;
-        cornerDrag = {
-          controller: c,
-          cornerIndex: cHit.object.userData.cornerIndex,
-          startDist: Math.max(0.06, Math.hypot(dx, dz)),
-          startScale: holder.scale.x,
-          startAngle: Math.atan2(dx, dz),
-          startYaw: holder.rotation.y,
-        };
-        pulseHaptic(c, 0.32, 16);
-        return;
-      }
-
-      // 6. Direct turntable ring or direct volcano model manipulation (hands & controllers)
-      const ringHit = raycaster.intersectObject(ringHitMesh)[0];
-      const modelHit = ringHit || raycaster.intersectObject(modelHitBox)[0];
-      if (modelHit) {
-        c.userData.modelSelect = true;
-        _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
-        const hasPlane = raycaster.ray.intersectPlane(_plane, _hitW);
-        const pt = hasPlane ? _hitW : modelHit.point;
-        const dx = pt.x - holder.position.x;
-        const dz = pt.z - holder.position.z;
-        const radial = Math.hypot(dx, dz);
-        // Clicking/pinching near the outer corners/edge (> 42% of model span) also scales + rotates;
-        // clicking/pinching the lower plinth edge slides/pans; clicking the cone rotates smoothly.
-        if (!ringHit && modelHit.point.y < holder.position.y + 0.022 * holder.scale.x) {
-          modelPanDrag = {
-            controller: c,
-            startHit: pt.clone(),
-            startPos: holder.position.clone(),
-          };
-        } else if (!ringHit && radial > 0.31 * holder.scale.x) {
-          cornerDrag = {
-            controller: c,
-            cornerIndex: 0,
-            startDist: Math.max(0.06, radial),
-            startScale: holder.scale.x,
-            startAngle: Math.atan2(dx, dz),
-            startYaw: holder.rotation.y,
-          };
+      const target = pickTarget(i);
+      if (target?.surface) {
+        const { hit, surface, touch } = target;
+        if (!hit) return;
+        if (hit.kind === 'slider') {
+          activeSlider = { controller: c, surface, id: hit.id, touch };
+          lastScrubPhase = state().phase;
+          applySlider(hit.id, hit.t, c);
+          pulseHaptic(c, 0.25, 14);
         } else {
-          ringDrag = { controller: c, startAngle: Math.atan2(dx, dz), startYaw: holder.rotation.y };
+          handleAction(hit.id, c);
         }
+        return;
+      }
+      if (target?.kind === 'dockHandle') {
+        dockDrag = {
+          controller: c, startRayDist: target.distance, startPoint: target.point.clone(),
+          startLateral: dockLateralOffset, startYOff: dockUserYOffset, startDistOff: dockUserDistOffset,
+        };
         pulseHaptic(c, 0.3, 16);
         return;
       }
+      if (target?.kind === 'relief') {
+        reliefDrag = { controller: c };
+        pulseHaptic(c, 0.3, 16);
+        return;
+      }
+      if (target) {
+        contact.mode = target.touch ? 'joint' : 'ray';
+        if (!contactPoint(i)) { contact.mode = null; return; }
+        c.userData.modelSelect = true;
+        const dx = contact.point.x - holder.position.x, dz = contact.point.z - holder.position.z;
+        if (contacts[1 - i].mode) {
+          cornerDrag = ringDrag = modelPanDrag = null;
+        } else if (target.kind === 'corner') {
+          cornerDrag = { contact, controller: c, cornerIndex: target.cornerIndex,
+            startDist: Math.max(0.04, Math.hypot(dx, dz)), startScale: holder.scale.x };
+        } else if (target.kind === 'ring') {
+          ringDrag = { contact, controller: c, startAngle: Math.atan2(dx, dz), startYaw: holder.rotation.y };
+        } else {
+          modelPanDrag = { controller: c, startHit: contact.point.clone(), startPos: holder.position.clone() };
+        }
+        pulseHaptic(c, 0.30, 16);
+        return;
+      }
 
-      // 7. Tap outside closes open drawer softly
+      // A selection on empty space dismisses the drawer.
       if (openDrawer) openDrawer = null;
     });
 
     const releaseSelect = () => {
       c.userData.modelSelect = false;
+      if (!c.userData.grab) contact.mode = null;
       two = null;
       if (activeSlider?.controller === c) activeSlider = null;
       if (ringDrag?.controller === c) { ringDrag = null; resizeBadge.visible = false; }
@@ -1647,20 +1645,105 @@ export function createTabletop({
       if (reliefDrag?.controller === c) reliefDrag = null;
       if (dockDrag?.controller === c) dockDrag = null;
     };
+    c.userData.releaseSelect = releaseSelect;
     c.addEventListener('selectend', releaseSelect);
     c.addEventListener('squeezestart', () => {
+      if (!placed || c.userData.modelSelect || c.userData.source?.hand || activeSlider || reliefDrag || dockDrag) return;
+      controllerRay(c);
+      if (!nearTerrain(c.position) && !raycaster.intersectObject(modelHitBox)[0]) return;
       c.userData.grab = true;
+      contact.mode = 'grip';
       grab = null;
-      two = null;
-      ringDrag = null;
-      cornerDrag = null;
-      modelPanDrag = null;
-      reliefDrag = null;
-      dockDrag = null;
       pulseHaptic(c, 0.25, 14);
     });
-    c.addEventListener('squeezeend', () => { c.userData.grab = false; grab = null; two = null; resizeBadge.visible = false; });
-    c.addEventListener('disconnected', () => { c.userData.grab = false; c.userData.modelSelect = false; grab = null; two = null; releaseSelect(); });
+    c.addEventListener('squeezeend', () => {
+      if (!c.userData.grab) return;
+      c.userData.grab = false;
+      contact.mode = null;
+      grab = two = null;
+    });
+    c.addEventListener('disconnected', () => {
+      lastButtons.delete(c.userData.source);
+      c.userData.source = null;
+      c.userData.grab = false;
+      contact.jointTracked = false;
+      releaseSelect();
+    });
+  }
+
+  function panelTouch(contact, mesh, width, height) {
+    if (!contact.jointTracked) return null;
+    mesh.worldToLocal(_v.copy(contact.joint));
+    if (_v.z < -0.015 || _v.z > 0.035 || Math.abs(_v.x) > width / 2 || Math.abs(_v.y) > height / 2) return null;
+    return { uv: { x: _v.x / width + 0.5, y: _v.y / height + 0.5 }, point: contact.joint };
+  }
+
+  function panelTarget(surface, intersection, touch) {
+    const isDock = surface === 'dock';
+    const layout = isDock ? DOCK_LAYOUT : openDrawer === 'stages' ? DRAWER_STAGES_LAYOUT : DRAWER_VIEW_LAYOUT;
+    const { x, y } = intersection.uv;
+    return { surface, touch, point: intersection.point,
+      hit: hitTestSurface(layout, isDock ? DOCK_W : DRAWER_W, isDock ? DOCK_H : DRAWER_H, x, y) };
+  }
+
+  function pickTarget(i) {
+    const contact = contacts[i];
+    const drawerOpen = openDrawer && drawerPivot.visible;
+    if (contact.jointTracked) {
+      const drawer = drawerOpen && panelTouch(contact, drawerMesh, drawerPhysW, drawerPhysH);
+      if (drawer) return panelTarget('drawer', drawer, true);
+      const dock = panelTouch(contact, dockMesh, dockPhysW, dockPhysH);
+      if (dock) return panelTarget('dock', dock, true);
+      const p = contact.joint;
+      for (const mesh of cornerHitMeshes) {
+        if (mesh.getWorldPosition(_v).distanceToSquared(p) <= 0.034 ** 2) {
+          return { kind: 'corner', cornerIndex: mesh.userData.cornerIndex, touch: true, point: p };
+        }
+      }
+      const radius = Math.hypot(p.x - holder.position.x, p.z - holder.position.z);
+      if (Math.abs(p.y - deskOrigin.y) < 0.035 && Math.abs(radius - 0.477 * holder.scale.x) < 0.023) {
+        return { kind: 'ring', touch: true, point: p };
+      }
+      if (nearTerrain(p)) return { kind: 'model', touch: true, point: p };
+    }
+    const drawer = drawerOpen && raycaster.intersectObject(drawerMesh)[0];
+    if (drawer) return panelTarget('drawer', drawer, false);
+    const dock = raycaster.intersectObject(dockMesh)[0];
+    if (dock) return panelTarget('dock', dock, false);
+    const handle = raycaster.intersectObject(dockGrabHitMesh)[0];
+    if (handle) return { kind: 'dockHandle', point: handle.point, distance: handle.distance };
+    const relief = reliefRoot.visible && raycaster.intersectObject(reliefHitMesh)[0];
+    if (relief) return { kind: 'relief', point: relief.point };
+    const corner = raycaster.intersectObjects(cornerHitMeshes, false)[0];
+    if (corner) return { kind: 'corner', cornerIndex: corner.object.userData.cornerIndex, point: corner.point };
+    const ring = raycaster.intersectObject(ringHitMesh)[0];
+    if (ring) return { kind: 'ring', point: ring.point };
+    const modelHit = raycaster.intersectObject(modelHitBox)[0];
+    return modelHit ? { kind: 'model', point: modelHit.point } : null;
+  }
+
+  function nearTerrain(point) {
+    _v.copy(point);
+    holder.worldToLocal(_v);
+    return Math.abs(_v.x) < 0.34 && Math.abs(_v.z) < 0.34 && _v.y >= -0.02 && _v.y < 0.19;
+  }
+
+  function contactPoint(i) {
+    const c = controllers[i], contact = contacts[i];
+    if (!contact.mode || !c.visible) return false;
+    if (contact.mode === 'joint') {
+      if (!contact.jointTracked) return false;
+      contact.point.copy(contact.joint);
+    } else if (contact.mode === 'grip') {
+      c.getWorldPosition(contact.point);
+    } else {
+      controllerRay(c);
+      _plane.setFromNormalAndCoplanarPoint(_up, deskOrigin);
+      if (raycaster.ray.direction.y > -0.08 || !raycaster.ray.intersectPlane(_plane, contact.point)
+        || contact.point.distanceToSquared(raycaster.ray.origin) > 9) return false;
+    }
+    contact.point.y = deskOrigin.y;
+    return true;
   }
 
   function syncLighting(lightName) {
@@ -1681,29 +1764,12 @@ export function createTabletop({
     }
   }
 
-  function drawGlassSurface(g, w, h, radius) {
-    rrect(g, 8, 8, w - 16, h - 16, radius);
-    const bg = g.createLinearGradient(0, 8, 0, h - 8);
-    bg.addColorStop(0, 'rgba(48, 52, 60, 0.84)');
-    bg.addColorStop(0.5, 'rgba(34, 37, 45, 0.87)');
-    bg.addColorStop(1, 'rgba(22, 24, 30, 0.91)');
-    g.fillStyle = bg;
+  function drawPanel(g, w, h, radius) {
+    rrect(g, 4, 4, w - 8, h - 8, radius);
+    g.fillStyle = '#15292a';
     g.fill();
-
-    // visionOS soft top-edge inner illumination
-    const sheen = g.createLinearGradient(0, 8, 0, h * 0.48);
-    sheen.addColorStop(0, 'rgba(255, 255, 255, 0.13)');
-    sheen.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    g.fillStyle = sheen;
-    g.fill();
-
-    // Specular rim stroke (bright top edge fading down)
-    const rim = g.createLinearGradient(0, 8, 0, h - 8);
-    rim.addColorStop(0, 'rgba(255, 255, 255, 0.46)');
-    rim.addColorStop(0.5, 'rgba(255, 255, 255, 0.18)');
-    rim.addColorStop(1, 'rgba(255, 255, 255, 0.08)');
-    g.strokeStyle = rim;
-    g.lineWidth = 2;
+    g.strokeStyle = '#688982';
+    g.lineWidth = 3;
     g.stroke();
   }
 
@@ -1726,7 +1792,7 @@ export function createTabletop({
     if (danger) {
       g.fillStyle = hover ? 'rgba(255, 86, 86, 0.36)' : 'rgba(255, 76, 76, 0.20)';
     } else if (lit) {
-      g.fillStyle = hover ? '#ffffff' : 'rgba(246, 248, 252, 0.95)';
+      g.fillStyle = hover ? '#d0ffef' : '#9ee3cc';
     } else {
       g.fillStyle = hover ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.10)';
     }
@@ -1762,7 +1828,7 @@ export function createTabletop({
     }
   }
 
-  // Apple visionOS filled-capsule slider (recessed dark glass track + luminous white fill bar)
+  // Sliders used by the view controls.
   function drawSlider(g, r, t, hover) {
     const cy = (r.y0 + r.y1) * 0.5;
     const len = r.tx1 - r.tx0;
@@ -1778,7 +1844,7 @@ export function createTabletop({
 
     const fillW = Math.max(barH, len * clampedT);
     rrect(g, r.tx0, cy - rad, fillW, barH, rad);
-    g.fillStyle = hover ? '#ffffff' : 'rgba(245, 247, 250, 0.90)';
+    g.fillStyle = hover ? '#ceffeb' : '#8bd5bb';
     g.fill();
 
     // Subtle dark knob dot inside the right end of the white fill capsule
@@ -1795,129 +1861,90 @@ export function createTabletop({
     g.stroke();
   }
 
+  const dockButtons = Object.fromEntries(DOCK_LAYOUT.map(r => [r.id, r]));
+  const dockTools = [
+    ['drawerStages', 'Chapters', 'layers'], ['drawerView', 'View', 'sliders'],
+    ['placeAgain', 'Place', 'target'], ['exitVR', 'Exit', 'exit'],
+  ];
+
+  function deskHint() {
+    if (two) return 'Spread to resize   /   Twist to turn';
+    if (hoverGrabBar || dockDrag) return 'Drag the handle to park the controls';
+    if (hoverCorner >= 0 || cornerDrag) return 'Drag the corner to resize';
+    if (hoverRing || ringDrag) return 'Drag around the ring to turn';
+    if (hoverModel || modelPanDrag || grab) return 'Drag to slide   /   Add a second hand to resize';
+    return 'Slide terrain   /   Turn ring   /   Resize corners';
+  }
+
   function drawDock(st) {
     const g = dockCtx;
     g.clearRect(0, 0, DOCK_W, DOCK_H);
-    drawGlassSurface(g, DOCK_W, DOCK_H, (DOCK_H - 16) * 0.48);
+    drawPanel(g, DOCK_W, DOCK_H, 32);
 
-    const byId = Object.fromEntries(DOCK_LAYOUT.map(x => [x.id, x]));
+    const play = dockButtons.playPause;
+    rrect(g, play.x0, play.y0, play.x1 - play.x0, play.y1 - play.y0, 24);
+    g.fillStyle = hoverDockId === 'playPause' ? '#ffd6af' : '#ffb67f';
+    g.fill();
+    drawIcon(g, st.playing ? 'pause' : 'play', 97, 111, 47, '#27302a');
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#27302a';
+    g.font = '650 31px system-ui';
+    g.fillText(st.playing ? 'Pause' : 'Play', 97, 176);
 
-    // Play / Pause luminous white circular button
-    drawPillButton(g, byId.playPause, '', {
-      accent: true,
-      hover: hoverDockId === 'playPause',
-      icon: st.playing ? 'pause' : 'play',
-      iconSize: 30,
-      radius: 64,
-    });
-
-    // Stage prev/next circular glass buttons
-    drawPillButton(g, byId.prevStage, '', {
-      hover: hoverDockId === 'prevStage',
-      icon: 'prev',
-      iconSize: 20,
-      radius: 32,
-    });
-    drawPillButton(g, byId.nextStage, '', {
-      hover: hoverDockId === 'nextStage',
-      icon: 'next',
-      iconSize: 20,
-      radius: 32,
-    });
-
-    // Clean Apple SF / Inter header & live telemetry
-    const titleX = 248;
-    if (st.erupting) {
-      g.beginPath();
-      g.arc(titleX + 7, 62, 6, 0, Math.PI * 2);
-      g.fillStyle = st.playing ? '#ff9f0a' : 'rgba(255, 159, 10, 0.65)';
-      g.fill();
+    for (const [id, icon] of [['prevStage', 'prev'], ['nextStage', 'next']]) {
+      drawPillButton(g, dockButtons[id], '', { hover: hoverDockId === id, icon, iconSize: 32, radius: 18 });
     }
-    g.fillStyle = '#ffffff';
-    g.font = '600 27px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
     g.textAlign = 'left';
     g.textBaseline = 'middle';
-    g.fillText(st.title || 'Börzsöny', st.erupting ? titleX + 22 : titleX, 62);
+    g.fillStyle = '#b8d4c9';
+    g.font = '600 28px system-ui';
+    g.fillText((st.erupting && st.clockText) || st.timeText || 'Geological time', 307, 62, 525);
+    g.fillStyle = '#fff8eb';
+    g.font = '650 46px system-ui';
+    g.fillText(st.title || 'Börzsöny', 304, 116, 530);
 
-    const spd = getSpeed ? getSpeed() : (st.speed || 1);
-    const spdTag = Math.abs(spd - 1) > 0.05 ? ` · ${spd}×` : '';
-    const timeStr = ([st.timeText, st.clockText].filter(Boolean).join(' · ') || `${Math.round(st.p * 100)}%`) + spdTag;
-    g.fillStyle = 'rgba(235, 240, 248, 0.62)';
-    g.font = '500 19px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
-    g.fillText(timeStr, titleX, 96);
-
-    // Sleek visionOS timeline scrubber track (with 90 Hz 3D pearl playhead above it)
-    const tl = byId.timeline;
-    const cy = (tl.y0 + tl.y1) * 0.5;
+    const tl = dockButtons.timeline;
+    const y = (tl.y0 + tl.y1) * 0.5;
     const len = tl.tx1 - tl.tx0;
-    const trackH = 18;
-    const trackR = trackH * 0.5;
-    g.save();
-    rrect(g, tl.tx0, cy - trackR, len, trackH, trackR);
-    g.fillStyle = 'rgba(0, 0, 0, 0.34)';
+    g.fillStyle = '#54716a';
+    rrect(g, tl.tx0, y - 8, len, 16, 8);
     g.fill();
-    g.clip();
-
-    // Subtle desaturated stage color bands underneath
-    for (const b of stageBands) {
-      const bx0 = tl.tx0 + b.p0 * len;
-      const bw = Math.max(2, (b.p1 - b.p0) * len + 1);
-      g.fillStyle = b.c || '#777';
-      g.globalAlpha = 0.28;
-      g.fillRect(bx0, cy - trackR, bw, trackH);
+    g.fillStyle = '#ffb67f';
+    g.fillRect(tl.tx0, y - 8, len * clamp(st.p, 0, 1), 16);
+    for (let i = 1; i < stageBands.length; i++) {
+      const b = stageBands[i];
+      const x = tl.tx0 + b.p0 * len;
+      g.fillStyle = '#bcd4c8';
+      g.fillRect(x - 2, y + 14, 4, 8);
     }
-    g.globalAlpha = 1;
 
-    // Luminous white progress fill up to current playhead
-    const fillW = Math.max(trackH, len * clamp(st.p, 0, 1));
-    rrect(g, tl.tx0, cy - trackR, fillW, trackH, trackR);
-    g.fillStyle = 'rgba(255, 255, 255, 0.86)';
-    g.fill();
-    g.restore();
+    for (const [id, label, icon] of dockTools) {
+      const r = dockButtons[id], mid = (r.x0 + r.x1) / 2;
+      const active = id === 'drawerStages' && openDrawer === 'stages' || id === 'drawerView' && openDrawer === 'view';
+      rrect(g, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 19);
+      g.fillStyle = active ? '#a5e1cd' : hoverDockId === id ? '#486a65' : '#253f40';
+      g.fill();
+      const ink = active ? '#122c27' : '#ecf4ec';
+      drawIcon(g, icon, mid, 110, 43, ink);
+      g.fillStyle = ink;
+      g.textAlign = 'center';
+      g.font = '600 30px system-ui';
+      g.fillText(label, mid, 177);
+    }
 
-    rrect(g, tl.tx0, cy - trackR, len, trackH, trackR);
-    g.strokeStyle = hoverDockId === 'timeline' || activeSlider?.id === 'timeline' ? 'rgba(255, 255, 255, 0.62)' : 'rgba(255, 255, 255, 0.20)';
-    g.lineWidth = 1.5;
-    g.stroke();
-
-    // Subtle vertical glass divider between timeline and window actions
-    g.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    g.lineWidth = 1.5;
-    g.beginPath();
-    g.moveTo(895, 56);
-    g.lineTo(895, DOCK_H - 56);
-    g.stroke();
-
-    // Right cluster: Stages, View, Recenter, Leave VR
-    drawPillButton(g, byId.drawerStages, 'Stages', {
-      active: openDrawer === 'stages',
-      hover: hoverDockId === 'drawerStages',
-      icon: 'layers',
-      iconSize: 17,
-      radius: 60,
-    });
-    drawPillButton(g, byId.drawerView, 'View', {
-      active: openDrawer === 'view',
-      hover: hoverDockId === 'drawerView',
-      icon: 'sliders',
-      iconSize: 17,
-      radius: 60,
-    });
-    drawPillButton(g, byId.placeAgain, '', {
-      hover: hoverDockId === 'placeAgain',
-      icon: 'target',
-      iconSize: 21,
-      radius: 60,
-    });
-    drawPillButton(g, byId.exitVR, 'Leave VR', {
-      danger: true,
-      hover: hoverDockId === 'exitVR',
-      icon: 'exit',
-      iconSize: 16,
-      font: '500 22px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
-      radius: 60,
-    });
-
+    g.fillStyle = '#41605c';
+    g.fillRect(30, 246, DOCK_W - 60, 2);
+    g.fillStyle = '#a4e3ca';
+    g.font = '650 29px system-ui';
+    g.textAlign = 'left';
+    g.fillText('BÖRZSÖNY', 36, 281);
+    g.fillStyle = '#d8e6de';
+    g.font = '500 29px system-ui';
+    g.fillText(deskHint(), 265, 281, 975);
+    g.textAlign = 'right';
+    g.font = '600 30px ui-monospace, monospace';
+    g.fillText(`${Math.round(holder.scale.x * MODEL_WIDTH * 100)} cm`, 1559, 281);
     dockTex.needsUpdate = true;
   }
 
@@ -1925,33 +1952,31 @@ export function createTabletop({
     if (!openDrawer) return;
     const g = drawerCtx;
     g.clearRect(0, 0, DRAWER_W, DRAWER_H);
-    drawGlassSurface(g, DRAWER_W, DRAWER_H, 52);
+    drawPanel(g, DRAWER_W, DRAWER_H, 58);
 
     if (openDrawer === 'stages') {
       const byId = Object.fromEntries(DRAWER_STAGES_LAYOUT.map(x => [x.id, x]));
-      g.fillStyle = 'rgba(235, 240, 248, 0.55)';
-      g.font = '600 18px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
+      g.fillStyle = '#c4dcd4';
+      g.font = '600 26px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
       g.textAlign = 'left';
       g.textBaseline = 'middle';
-      g.fillText('TIMELINE CHAPTERS · PLAYBACK SPEED', 44, 62);
+      g.fillText('Chapters    /    Playback speed', 44, 62);
 
       const curSpeed = getSpeed ? getSpeed() : (st.speed || 1);
       for (const [id, val, lbl] of [['speed05', 0.5, '0.5×'], ['speed1', 1, '1×'], ['speed2', 2, '2×'], ['speed4', 4, '4×']]) {
         drawPillButton(g, byId[id], lbl, {
           active: Math.abs(curSpeed - val) < 0.08,
           hover: hoverDrawerId === id,
-          font: '600 20px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
+          font: '600 25px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
           radius: 34,
         });
       }
 
       drawPillButton(g, byId.watchEruption, 'Watch Eruption', {
-        accent: st.erupting && st.playing,
-        active: st.erupting && !st.playing,
         hover: hoverDrawerId === 'watchEruption',
         icon: 'flame',
         iconSize: 17,
-        font: '600 23px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
+        font: '600 27px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
         radius: 36,
       });
 
@@ -1963,7 +1988,7 @@ export function createTabletop({
         const w = r.x1 - r.x0;
         const h = r.y1 - r.y0;
         rrect(g, r.x0, r.y0, w, h, 28);
-        g.fillStyle = act ? 'rgba(255, 255, 255, 0.94)' : hov ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.07)';
+        g.fillStyle = act ? '#a5e1cd' : hov ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.07)';
         g.fill();
         g.strokeStyle = act ? '#ffffff' : hov ? 'rgba(255, 255, 255, 0.42)' : 'rgba(255, 255, 255, 0.14)';
         g.lineWidth = act || hov ? 2 : 1.5;
@@ -1976,12 +2001,12 @@ export function createTabletop({
         g.fill();
 
         g.fillStyle = act ? '#111318' : '#f5f7fa';
-        g.font = '600 26px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
+        g.font = '600 32px system-ui';
         g.textAlign = 'left';
         g.fillText(pill.label, r.x0 + 46, r.y0 + 43);
 
-        g.fillStyle = act ? 'rgba(17, 19, 24, 0.65)' : 'rgba(235, 240, 248, 0.55)';
-        g.font = '500 19px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
+        g.fillStyle = act ? 'rgba(17, 19, 24, 0.65)' : '#c4dcd4';
+        g.font = '500 25px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
         g.fillText(pill.sub, r.x0 + 24, r.y0 + 88);
       }
     } else if (openDrawer === 'view') {
@@ -1996,16 +2021,16 @@ export function createTabletop({
       g.textBaseline = 'middle';
       g.fillStyle = 'rgba(235, 240, 248, 0.72)';
       g.font = '500 21px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif';
-      g.fillText(`Scale  ${curScale.toFixed(2)}×`, 42, 73);
-      g.fillText(`Rotate  ${yawDeg}°`, 42, 171);
+      g.fillText(`Size  ${Math.round(65 * curScale)} cm`, 42, 73);
+      g.fillText(`Turn  ${yawDeg}°`, 42, 171);
       g.fillText(`Relief  ${curExag.toFixed(1)}×`, 42, 269);
 
       drawSlider(g, byId.scaleSlider, scaleToT(curScale), hoverDrawerId === 'scaleSlider' || activeSlider?.id === 'scaleSlider');
-      drawPillButton(g, byId.scale05, '0.5×', { active: Math.abs(curScale - 0.5) < 0.06, hover: hoverDrawerId === 'scale05', radius: 34 });
-      drawPillButton(g, byId.scale10, '1×', { active: Math.abs(curScale - 1.0) < 0.06, hover: hoverDrawerId === 'scale10', radius: 34 });
-      drawPillButton(g, byId.scale20, '2×', { active: Math.abs(curScale - 2.0) < 0.08, hover: hoverDrawerId === 'scale20', radius: 34 });
+      drawPillButton(g, byId.scale05, '33 cm', { active: Math.abs(curScale - 0.5) < 0.06, hover: hoverDrawerId === 'scale05', radius: 34 });
+      drawPillButton(g, byId.scale10, '65 cm', { active: Math.abs(curScale - 1.0) < 0.06, hover: hoverDrawerId === 'scale10', radius: 34 });
+      drawPillButton(g, byId.scale20, '130 cm', { active: Math.abs(curScale - 2.0) < 0.08, hover: hoverDrawerId === 'scale20', radius: 34 });
 
-      const rotNorm = (((0.5 - holder.rotation.y / (Math.PI * 2)) % 1) + 1) % 1;
+      const rotNorm = (((0.5 + (homeYaw - holder.rotation.y) / (Math.PI * 2)) % 1) + 1) % 1;
       drawSlider(g, byId.rotSlider, rotNorm, hoverDrawerId === 'rotSlider' || activeSlider?.id === 'rotSlider');
       drawPillButton(g, byId.rotNorth, 'North · 0°', { active: yawDeg < 4 || yawDeg > 356, hover: hoverDrawerId === 'rotNorth', radius: 34 });
 
@@ -2030,7 +2055,7 @@ export function createTabletop({
     const token = ++generation;
     const s = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['local-floor'],
-      optionalFeatures: ['hit-test', 'hand-tracking', 'anchors'],
+      optionalFeatures: ['hit-test', 'hand-tracking'],
     });
     session = s;
     savedCamera = {
@@ -2060,8 +2085,9 @@ export function createTabletop({
       hitSource?.cancel();
       hitSource = null;
       space = null;
-      anchor?.delete?.();
-      anchor = null;
+      clearManipulation();
+      guide.visible = false;
+      reticle.visible = false;
       holder.visible = false;
       uiRoot.visible = false;
       reliefRoot.visible = false;
@@ -2069,20 +2095,12 @@ export function createTabletop({
       reticle.visible = false;
       cursorDot.visible = false;
       handPinchOrbs.forEach(o => { o.visible = false; });
-      handPinchState.forEach(h => { h.pinching = false; });
+      contacts.forEach(h => { h.jointTracked = false; });
       placed = false;
       openDrawer = null;
       drawerAnim = 0;
       dockUserYOffset = 0;
       dockUserDistOffset = 0;
-      grab = null;
-      two = null;
-      activeSlider = null;
-      ringDrag = null;
-      cornerDrag = null;
-      modelPanDrag = null;
-      reliefDrag = null;
-      dockDrag = null;
       hoverDockId = null;
       hoverDrawerId = null;
       hoverCorner = -1;
@@ -2092,11 +2110,13 @@ export function createTabletop({
       hoverGrabBar = false;
       prevHoverSig = '';
       lastButtons.clear();
-      controllers.forEach(c => { c.userData.grab = false; c.userData.modelSelect = false; });
       document.body.classList.remove('in-xr');
       renderer.setClearColor(0x000000, 1);
     });
 
+    s.addEventListener('visibilitychange', () => {
+      if (s.visibilityState !== 'visible') clearManipulation();
+    });
     renderer.xr.setReferenceSpaceType('local-floor');
     try {
       try { renderer.xr.setFramebufferScaleFactor?.(0.92); } catch {}
@@ -2116,16 +2136,15 @@ export function createTabletop({
     lastDockKey = '';
     lastDrawerKey = '';
 
-    try {
-      const viewer = await s.requestReferenceSpace('viewer');
-      space = await s.requestReferenceSpace('local-floor');
-      if (s.requestHitTestSource) {
-        const h = await s.requestHitTestSource({ space: viewer });
-        if (token === generation) hitSource = h;
-        else h.cancel();
-      }
-    } catch {
-      // Manual placement: touch controller to table and trigger.
+    space = renderer.xr.getReferenceSpace();
+    if (s.requestHitTestSource) {
+      s.requestReferenceSpace('viewer')
+        .then(viewer => token === generation ? s.requestHitTestSource({ space: viewer }) : null)
+        .then(source => {
+          if (token === generation) hitSource = source;
+          else source?.cancel();
+        })
+        .catch(() => {}); // Manual placement stays available without surface detection.
     }
   }
 
@@ -2152,100 +2171,78 @@ export function createTabletop({
       }
     }
 
-    if (!placed && frame && hitSource && space) {
-      const hit = frame.getHitTestResults(hitSource)[0];
-      const pose = hit?.getPose(space);
+    const eyeCam = renderer.xr.getCamera(camera);
+    eyeCam.getWorldPosition(_camPosW);
+    if (!placed) {
+      const hits = frame && hitSource && space ? frame.getHitTestResults(hitSource) : [];
+      let pose = null;
+      for (const hit of hits) {
+        const candidate = hit.getPose(space);
+        if (candidate && isDeskSurface(candidate.transform.matrix)) { pose = candidate; break; }
+      }
       reticle.visible = !!pose;
-      if (pose) reticle.position.set(pose.transform.position.x, pose.transform.position.y + 0.002, pose.transform.position.z);
-    }
-
-    // Near-field WebXR Hand Tracking joint pinch detection (thumb-tip + index-finger-tip)
-    let handIdx = 0;
-    handPinchOrbs[0].visible = false;
-    handPinchOrbs[1].visible = false;
-    if (placed && frame && space && frame.getJointPose) {
-      for (const source of session.inputSources) {
-        if (!source.hand || handIdx >= 2) continue;
-        const idxJoint = source.hand.get('index-finger-tip');
-        const thbJoint = source.hand.get('thumb-tip');
-        const idxPose = idxJoint ? frame.getJointPose(idxJoint, space) : null;
-        const thbPose = thbJoint ? frame.getJointPose(thbJoint, space) : null;
-        const hs = handPinchState[handIdx];
-        if (idxPose && thbPose) {
-          const ix = idxPose.transform.position.x, iy = idxPose.transform.position.y, iz = idxPose.transform.position.z;
-          const tx = thbPose.transform.position.x, ty = thbPose.transform.position.y, tz = thbPose.transform.position.z;
-          hs.pos.set((ix + tx) * 0.5, (iy + ty) * 0.5, (iz + tz) * 0.5);
-          const pinchDist = Math.hypot(ix - tx, iy - ty, iz - tz);
-          const distToModel = Math.hypot(hs.pos.x - holder.position.x, hs.pos.z - holder.position.z);
-          if (distToModel < 0.65 * holder.scale.x + 0.25) {
-            const orb = handPinchOrbs[handIdx];
-            orb.position.copy(hs.pos);
-            orb.visible = true;
-            const wasPinching = hs.pinching;
-            hs.pinching = wasPinching ? pinchDist < 0.036 : pinchDist < 0.024;
-            orb.scale.setScalar(hs.pinching ? 1.35 : 0.9);
-            if (hs.pinching !== wasPinching) { two = null; grab = null; }
-          } else {
-            hs.pinching = false;
-          }
-        } else {
-          hs.pinching = false;
-        }
-        handIdx++;
-      }
-    }
-
-    // Direct 1-hand and 2-hand model manipulation (works with controller Grip, controller Trigger on model, or bare-hand Pinch!)
-    const activePts = [];
-    for (let i = 0; i < 2; i++) {
-      if (handPinchState[i].pinching) {
-        activePts.push(handPinchState[i].pos);
-      } else if (controllers[i] && (controllers[i].userData.grab || controllers[i].userData.modelSelect)) {
-        activePts.push(controllers[i].position);
-      }
-    }
-
-    if (placed && activePts.length >= 2) {
-      ringDrag = null;
-      cornerDrag = null;
-      modelPanDrag = null;
-      _p0.copy(activePts[0]);
-      _p1.copy(activePts[1]);
-      const mid = _v.copy(_p0).add(_p1).multiplyScalar(0.5);
-      const distance = Math.max(0.04, _p0.distanceTo(_p1));
-      const ang = Math.atan2(_p1.z - _p0.z, _p1.x - _p0.x);
-      if (!two) {
-        two = {
-          mid: mid.clone(),
-          distance,
-          angle: ang,
-          scale: holder.scale.x,
-          position: holder.position.clone(),
-          yaw: holder.rotation.y,
-        };
-      }
-      const nextScale = clampScale(two.scale * distance / two.distance);
-      const ratio = nextScale / two.scale;
-      const delta = -(ang - two.angle);
-      holder.scale.setScalar(nextScale);
-      holder.rotation.y = two.yaw + delta;
-      holder.position.copy(two.position).sub(two.mid).multiplyScalar(ratio).applyAxisAngle(_up, delta).add(mid);
-    } else if (placed) {
-      two = null;
-      const gripCtrl = controllers.find(c => c.userData.grab);
-      const nearHand = handPinchState.find(h => h.pinching);
-      if (gripCtrl) {
-        if (!grab) grab = { c: gripCtrl, offset: gripCtrl.matrixWorld.clone().invert().multiply(holder.matrixWorld) };
-        const m = gripCtrl.matrixWorld.clone().multiply(grab.offset);
-        m.decompose(holder.position, holder.quaternion, holder.scale);
-      } else if (nearHand && !ringDrag && !cornerDrag && !modelPanDrag && !activeSlider && !dockDrag) {
-        if (!grab) grab = { hand: nearHand, startHand: nearHand.pos.clone(), startPos: holder.position.clone() };
-        if (grab.hand === nearHand) {
-          holder.position.copy(grab.startPos).add(nearHand.pos).sub(grab.startHand);
-        }
+      guide.visible = true;
+      if (pose) {
+        const pos = pose.transform.position;
+        reticle.position.set(pos.x, pos.y + 0.002, pos.z);
+        reticle.rotation.y = Math.atan2(_camPosW.x - pos.x, _camPosW.z - pos.z);
+        guide.position.copy(reticle.position);
+        guide.position.y += 0.12;
       } else {
-        grab = null;
+        eyeCam.getWorldDirection(_v);
+        guide.position.copy(_camPosW).addScaledVector(_v, 0.62);
+        guide.position.y -= 0.075;
       }
+      drawGuide(pose ? 'surface' : 'manual');
+      guide.lookAt(_camPosW);
+    }
+
+    for (let i = 0; i < contacts.length; i++) {
+      const c = controllers[i], contact = contacts[i], orb = handPinchOrbs[i];
+      const hand = c.userData.source?.hand;
+      const tip = hand?.get('index-finger-tip');
+      const thumb = hand?.get('thumb-tip');
+      const a = tip && space && frame?.getJointPose?.(tip, space);
+      const b = thumb && space && frame?.getJointPose?.(thumb, space);
+      contact.jointTracked = !!(a && b);
+      if (contact.jointTracked) {
+        const p = a.transform.position, q = b.transform.position;
+        contact.joint.set((p.x + q.x) / 2, (p.y + q.y) / 2, (p.z + q.z) / 2);
+        orb.position.copy(contact.joint);
+      }
+      orb.visible = placed && contact.jointTracked && (contact.mode === 'joint' || nearTerrain(contact.joint));
+      if ((contact.mode && !contactPoint(i)) || (!c.visible &&
+          (activeSlider?.controller === c || dockDrag?.controller === c || reliefDrag?.controller === c))) {
+        c.userData.grab = false;
+        c.userData.releaseSelect();
+      }
+    }
+
+    const left = contacts[0], right = contacts[1];
+    if (placed && left.mode && right.mode) {
+      const a = left.point, b = right.point;
+      const distance = Math.hypot(b.x - a.x, b.z - a.z);
+      const mid = _v.copy(a).add(b).multiplyScalar(0.5);
+      const angle = Math.atan2(b.x - a.x, b.z - a.z);
+      ringDrag = cornerDrag = modelPanDrag = grab = null;
+      if (distance < 0.045) {
+        two = null;
+      } else if (!two) {
+        two = { mid: mid.clone(), distance, angle, scale: holder.scale.x,
+          position: holder.position.clone(), yaw: holder.rotation.y };
+      } else {
+        applyDeskGesture(holder, two, mid, distance, angle);
+      }
+    } else {
+      two = null;
+      const held = left.mode ? left : right.mode ? right : null;
+      if (placed && held && !ringDrag && !cornerDrag) {
+        if (!modelPanDrag && grab?.contact !== held) {
+          grab = { contact: held, startHit: held.point.clone(), startPos: holder.position.clone() };
+        }
+        const pan = modelPanDrag || grab;
+        holder.position.copy(pan.startPos).add(held.point).sub(pan.startHit);
+      } else grab = null;
     }
 
     // Dual thumbstick & button controls (zero per-frame array allocations)
@@ -2256,14 +2253,14 @@ export function createTabletop({
       if (!prev) { prev = [false, false]; lastButtons.set(source, prev); }
       const b4 = !!gp.buttons[4]?.pressed;
       const b5 = !!gp.buttons[5]?.pressed;
-      if (b4 && !prev[0]) togglePlay();
-      if (b5 && !prev[1]) handleAction('placeAgain');
+      if (placed && b4 && !prev[0]) togglePlay();
+      if (placed && b5 && !prev[1]) handleAction('placeAgain');
       prev[0] = b4;
       prev[1] = b5;
 
       const ax = gp.axes.length >= 4 ? gp.axes[2] : (gp.axes[0] || 0);
       const ay = gp.axes.length >= 4 ? gp.axes[3] : (gp.axes[1] || 0);
-      if (placed) {
+      if (placed && !left.mode && !right.mode && !activeSlider && !dockDrag && !reliefDrag) {
         if (source.handedness === 'left') {
           if (Math.abs(ax) > 0.18) holder.rotation.y += ax * dt * 1.9;
           if (Math.abs(ay) > 0.18) holder.scale.setScalar(clampScale(holder.scale.x * Math.exp(-ay * dt * 1.1)));
@@ -2274,7 +2271,7 @@ export function createTabletop({
       }
     }
 
-    // Active continuous drag handlers (sliders, dock grab bar, 1-hand corner resize+rotate, turntable ring, plinth move, relief)
+    // Captured controls continue to track outside their initial hit targets.
     if (placed && activeSlider) {
       controllerRay(activeSlider.controller);
       const targetMesh = activeSlider.surface === 'drawer' ? drawerMesh : dockMesh;
@@ -2288,7 +2285,11 @@ export function createTabletop({
       targetMesh.localToWorld(_v.set(0, 0, 0));
       targetMesh.localToWorld(_v2.set(0, 0, 1)).sub(_v).normalize();
       _plane.setFromNormalAndCoplanarPoint(_v2, _v);
-      if (rect && raycaster.ray.intersectPlane(_plane, _hitW)) {
+      const contact = contacts[controllers.indexOf(activeSlider.controller)];
+      const point = activeSlider.touch ? (contact.jointTracked && contact.joint) : raycaster.ray.intersectPlane(_plane, _hitW);
+      if (!point && activeSlider.touch) activeSlider = null;
+      if (rect && point) {
+        _hitW.copy(point);
         targetMesh.worldToLocal(_hitW);
         const u = clamp(_hitW.x / physW + 0.5, 0, 1);
         const px = u * canvW;
@@ -2301,32 +2302,17 @@ export function createTabletop({
       controllerRay(dockDrag.controller);
       _hitW.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, dockDrag.startRayDist);
       const dy = _hitW.y - dockDrag.startPoint.y;
-      const dr = (_hitW.x - dockDrag.startPoint.x) * Math.sin(uiYaw) + (_hitW.z - dockDrag.startPoint.z) * Math.cos(uiYaw);
-      dockUserYOffset = clamp(dockDrag.startYOff + dy, -0.10, 0.28);
+      const dr = (_hitW.x - dockDrag.startPoint.x) * Math.sin(homeYaw) + (_hitW.z - dockDrag.startPoint.z) * Math.cos(homeYaw);
+      const lateral = (_hitW.x - dockDrag.startPoint.x) * Math.cos(homeYaw) - (_hitW.z - dockDrag.startPoint.z) * Math.sin(homeYaw);
+      dockLateralOffset = clamp(dockDrag.startLateral + lateral, -0.55, 0.55);
+      dockUserYOffset = clamp(dockDrag.startYOff + dy, -0.012, 0.28);
       dockUserDistOffset = clamp(dockDrag.startDistOff + dr, -0.14, 0.36);
     }
 
-    if (placed && cornerDrag && activePts.length < 2) {
-      controllerRay(cornerDrag.controller);
-      _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
-      if (raycaster.ray.intersectPlane(_plane, _hitW)) {
-        const dx = _hitW.x - holder.position.x;
-        const dz = _hitW.z - holder.position.z;
-        const d = Math.max(0.06, Math.hypot(dx, dz));
-        holder.scale.setScalar(clampScale(cornerDrag.startScale * (d / cornerDrag.startDist)));
-        if (cornerDrag.startAngle !== undefined) {
-          holder.rotation.y = cornerDrag.startYaw + (Math.atan2(dx, dz) - cornerDrag.startAngle);
-        }
-      }
-    }
-
-    if (placed && modelPanDrag && activePts.length < 2) {
-      controllerRay(modelPanDrag.controller);
-      _plane.setFromNormalAndCoplanarPoint(_up, modelPanDrag.startPos);
-      if (raycaster.ray.intersectPlane(_plane, _hitW)) {
-        holder.position.x = modelPanDrag.startPos.x + (_hitW.x - modelPanDrag.startHit.x);
-        holder.position.z = modelPanDrag.startPos.z + (_hitW.z - modelPanDrag.startHit.z);
-      }
+    if (placed && cornerDrag) {
+      const pt = cornerDrag.contact.point;
+      const distance = Math.hypot(pt.x - holder.position.x, pt.z - holder.position.z);
+      holder.scale.setScalar(clampScale(cornerDrag.startScale * distance / cornerDrag.startDist));
     }
 
     if (placed && reliefDrag && setExag) {
@@ -2341,14 +2327,9 @@ export function createTabletop({
       }
     }
 
-    if (placed && ringDrag && activePts.length < 2) {
-      controllerRay(ringDrag.controller);
-      _plane.setFromNormalAndCoplanarPoint(_up, holder.position);
-      if (raycaster.ray.intersectPlane(_plane, _hitW)) {
-        const dx = _hitW.x - holder.position.x;
-        const dz = _hitW.z - holder.position.z;
-        holder.rotation.y = ringDrag.startYaw + (Math.atan2(dx, dz) - ringDrag.startAngle);
-      }
+    if (placed && ringDrag) {
+      const pt = ringDrag.contact.point;
+      holder.rotation.y = ringDrag.startYaw + Math.atan2(pt.x - holder.position.x, pt.z - holder.position.z) - ringDrag.startAngle;
     }
 
     // Hover feedback, micro-haptics & pearl cursor halo across controllers / hand rays
@@ -2364,81 +2345,33 @@ export function createTabletop({
     let hoveredKey = '';
 
     if (placed) {
-      let foundCursor = false;
-      for (const c of controllers) {
+      for (let i = 0; i < controllers.length; i++) {
+        const c = controllers[i];
+        if (!c.visible || !c.userData.source) continue;
         controllerRay(c);
-        let highlighted = false;
-
-        if (openDrawer && drawerPivot.visible) {
-          const dHit = raycaster.intersectObject(drawerMesh)[0];
-          if (dHit?.uv) {
-            const layout = openDrawer === 'stages' ? DRAWER_STAGES_LAYOUT : DRAWER_VIEW_LAYOUT;
-            const hit = hitTestSurface(layout, DRAWER_W, DRAWER_H, dHit.uv.x, dHit.uv.y);
-            if (!foundCursor) {
-              foundCursor = true;
-              hoverDrawerId = hit ? hit.id : null;
-              cursorDot.visible = true;
-              dockPivot.worldToLocal(_v.copy(dHit.point));
-              cursorDot.position.set(_v.x, _v.y, _v.z + 0.004);
-              cursorDot.scale.setScalar(hit ? 1.25 : 0.9);
-              if (hit) { hoveredCtrl = c; hoveredKey = `dr:${hit.id}`; }
-            }
-            highlighted = !!hit;
-          }
+        const target = pickTarget(i);
+        const focused = target && (target.kind || target.hit);
+        c.userData.line.scale.z = target ? raycaster.ray.origin.distanceTo(target.point) / 2 : 0.35;
+        c.userData.line.visible = !target?.touch;
+        c.userData.lineMat.color.setHex(focused ? 0x97e0c6 : 0xd7e5df);
+        c.userData.lineMat.opacity = focused ? 0.70 : 0.22;
+        if (!target) continue;
+        if (target.surface && !cursorDot.visible) {
+          dockPivot.worldToLocal(_v.copy(target.point));
+          cursorDot.position.set(_v.x, _v.y, _v.z + 0.004);
+          cursorDot.scale.setScalar(target.hit ? 1.25 : 0.9);
+          cursorDot.visible = true;
+          if (target.surface === 'dock') hoverDockId = target.hit?.id;
+          else hoverDrawerId = target.hit?.id;
+        } else if (target.kind === 'corner') hoverCorner = target.cornerIndex;
+        else if (target.kind === 'ring') hoverRing = true;
+        else if (target.kind === 'model') hoverModel = true;
+        else if (target.kind === 'dockHandle') hoverGrabBar = true;
+        else if (target.kind === 'relief') hoverRelief = true;
+        if (focused && !hoveredCtrl) {
+          hoveredCtrl = c;
+          hoveredKey = target.hit?.id || target.kind;
         }
-
-        if (!highlighted) {
-          const dockHit = raycaster.intersectObject(dockMesh)[0];
-          if (dockHit?.uv) {
-            const hit = hitTestSurface(DOCK_LAYOUT, DOCK_W, DOCK_H, dockHit.uv.x, dockHit.uv.y);
-            if (!foundCursor) {
-              foundCursor = true;
-              hoverDockId = hit ? hit.id : null;
-              cursorDot.visible = true;
-              dockPivot.worldToLocal(_v.copy(dockHit.point));
-              cursorDot.position.set(_v.x, _v.y, _v.z + 0.004);
-              cursorDot.scale.setScalar(hit ? 1.25 : 0.9);
-              if (hit) { hoveredCtrl = c; hoveredKey = `dk:${hit.id}`; }
-            }
-            highlighted = !!hit;
-          }
-        }
-
-        if (!highlighted) {
-          if (raycaster.intersectObject(dockGrabHitMesh)[0]) {
-            hoverGrabBar = true;
-            highlighted = true;
-            hoveredCtrl = c;
-            hoveredKey = 'grab';
-          } else if (reliefRoot.visible && raycaster.intersectObject(reliefHitMesh)[0]) {
-            hoverRelief = true;
-            highlighted = true;
-            hoveredCtrl = c;
-            hoveredKey = 'relief';
-          } else {
-            const cHit = raycaster.intersectObjects(cornerHitMeshes, false)[0];
-            if (cHit) {
-              hoverCorner = cHit.object.userData.cornerIndex;
-              highlighted = true;
-              hoveredCtrl = c;
-              hoveredKey = `c:${hoverCorner}`;
-            } else if (raycaster.intersectObject(ringHitMesh)[0]) {
-              hoverRing = true;
-              highlighted = true;
-              hoveredCtrl = c;
-              hoveredKey = 'ring';
-            } else if (raycaster.intersectObject(modelHitBox)[0]) {
-              hoverModel = true;
-              highlighted = true;
-              hoveredCtrl = c;
-              hoveredKey = 'model';
-            }
-          }
-        }
-
-        c.userData.lineMat.color.setHex(0xffffff);
-        c.userData.lineMat.opacity = highlighted ? 0.78 : 0.28;
-        c.userData.tipMat?.color.setHex(0xffffff);
       }
     }
 
@@ -2447,40 +2380,28 @@ export function createTabletop({
       if (hoveredKey && hoveredCtrl) pulseHaptic(hoveredCtrl, 0.14, 10);
     }
 
-    // Fluid damped spring animations for dock, drawers, playhead, and 3D handles
+    // Update the parked console, drawer and manipulation feedback.
     const xrCam = renderer.xr.getCamera(camera);
     xrCam.updateMatrixWorld(true);
     _camPosW.setFromMatrixPosition(xrCam.matrixWorld);
 
     if (placed) {
-      const interacting = !!(activeSlider || dockDrag || hoverDockId || hoverDrawerId || hoverGrabBar || cursorDot.visible);
-      if (!interacting) {
-        const eyeYaw = Math.atan2(_camPosW.x - holder.position.x, _camPosW.z - holder.position.z);
-        const diff = Math.atan2(Math.sin(eyeYaw - uiYaw), Math.cos(eyeYaw - uiYaw));
-        if (Math.abs(diff) > 0.28) {
-          uiYaw += diff * (1 - Math.exp(-dt * 4.5));
-        }
-      }
-
-      const targetLift = (hoverDockId || hoverDrawerId || activeSlider || dockDrag) ? 0.008 : 0;
-      dockLift += (targetLift - dockLift) * (1 - Math.exp(-dt * 12));
-
-      const offsetR = Math.max(0.36, 0.49 * holder.scale.x) + 0.14 + dockUserDistOffset;
+      const sn = Math.sin(homeYaw), cs = Math.cos(homeYaw);
       uiRoot.position.set(
-        holder.position.x + Math.sin(uiYaw) * offsetR,
-        holder.position.y + 0.055 + dockLift + dockUserYOffset,
-        holder.position.z + Math.cos(uiYaw) * offsetR,
+        dockHome.x + cs * dockLateralOffset + sn * dockUserDistOffset,
+        dockHome.y + 0.066 + dockUserYOffset,
+        dockHome.z - sn * dockLateralOffset + cs * dockUserDistOffset,
       );
-      uiRoot.rotation.set(0, uiYaw, 0);
+      uiRoot.rotation.set(0, homeYaw, 0);
 
-      // visionOS window grab pill hover/drag styling
+      // Highlight the grip while the console is being repositioned.
       const grabHot = hoverGrabBar || !!dockDrag;
       dockGrabPill.material.color.setHex(0xffffff);
       dockGrabPill.material.opacity = grabHot ? 0.92 : 0.38;
       dockGrabPill.scale.set(grabHot ? 1.12 : 1.0, grabHot ? 1.25 : 1.0, 1);
 
       // Smooth 90 Hz 3D pearl-white timeline playhead orb aligned to DOCK_LAYOUT.timeline
-      const tlRect = DOCK_LAYOUT[3];
+      const tlRect = dockButtons.timeline;
       const tlPx = tlRect.tx0 + (tlRect.tx1 - tlRect.tx0) * clamp(st.p, 0, 1);
       const tlPy = (tlRect.y0 + tlRect.y1) * 0.5;
       timelinePlayhead.position.set(
@@ -2497,42 +2418,43 @@ export function createTabletop({
       drawerPivot.visible = drawerAnim > 0.02;
       if (drawerPivot.visible) {
         drawerPivot.scale.setScalar(0.92 + 0.08 * drawerAnim);
-        drawerPivot.position.y = dockPhysH * 0.5 + 0.070 + 0.022 * drawerAnim;
+        drawerPivot.position.y = dockPhysH * 0.5 + drawerPhysH * 0.5 + 0.006 + 0.008 * drawerAnim;
       }
 
       // Only show vertical relief rail when View sheet is open or dragging relief
       reliefRoot.visible = openDrawer === 'view' || !!reliefDrag;
       if (reliefRoot.visible) {
-        const rightAngle = uiYaw + Math.PI * 0.44;
+        const rightAngle = homeYaw + Math.PI * 0.44;
         const reliefR = Math.max(0.36, 0.49 * holder.scale.x) + 0.07;
         reliefRoot.position.set(
           holder.position.x + Math.sin(rightAngle) * reliefR,
           holder.position.y + 0.025,
           holder.position.z + Math.cos(rightAngle) * reliefR,
         );
-        reliefRoot.rotation.set(0, uiYaw, 0);
+        reliefRoot.rotation.set(0, homeYaw, 0);
         const curExag = getExag ? getExag() : (st.exag || 1);
         reliefOrb.position.y = clamp((curExag - 1) / 3, 0, 1) * reliefHeight;
         reliefOrb.scale.setScalar((hoverRelief || reliefDrag) ? 1.25 : 1.0);
         updateReliefLabel(curExag);
       }
 
-      // Minimalist visionOS corner brackets & floating manipulation pill
-      const invS = Math.max(0.45, 1 / holder.scale.x);
-      const modelAwake = hoverModel || hoverRing || hoverCorner >= 0 || !!cornerDrag || !!ringDrag || !!modelPanDrag || !!two;
+      // Keep handles easy to acquire at every map scale.
+      const invS = 1 / holder.scale.x;
+      const modelAwake = !!grab || hoverModel || hoverRing || hoverCorner >= 0 || !!cornerDrag || !!ringDrag || !!modelPanDrag || !!two;
       for (let i = 0; i < cornerHandles.length; i++) {
         const ch = cornerHandles[i];
         const hot = hoverCorner === i || cornerDrag?.cornerIndex === i || !!two;
         ch.group.scale.setScalar(invS * (hot ? 1.22 : 1.0));
-        ch.orb.material.opacity = hot ? 0.95 : modelAwake ? 0.65 : 0.25;
+        ch.orb.material.color.setHex(hot ? 0xffab6f : 0xb3f0d9);
+        ch.orb.material.opacity = hot ? 1 : modelAwake ? 0.82 : 0.64;
         ch.ring.material.opacity = hot ? 0.85 : modelAwake ? 0.42 : 0.14;
-        ch.armMat.opacity = hot ? 0.95 : modelAwake ? 0.55 : 0.20;
+        ch.armMat.opacity = hot ? 1 : modelAwake ? 0.85 : 0.65;
       }
 
       if (two || cornerDrag || hoverCorner >= 0) {
         _v.set(holder.position.x, holder.position.y + 0.22 * holder.scale.x, holder.position.z);
         const s = holder.scale.x;
-        updateBadge(resizeBadge, `${s.toFixed(2)}× · ${Math.round(s * 65)} cm · ${normalizedYawDeg()}°`, _v);
+        updateBadge(resizeBadge, `Size · ${Math.round(s * 65)} cm`, _v);
         resizeBadge.lookAt(_camPosW);
       } else if (ringDrag) {
         _v.set(holder.position.x, holder.position.y + 0.22 * holder.scale.x, holder.position.z);
@@ -2546,7 +2468,7 @@ export function createTabletop({
         resizeBadge.visible = false;
       }
 
-      turntableRing.material.opacity = (hoverRing || ringDrag || modelAwake) ? 0.88 : 0.42;
+      turntableRing.material.opacity = (hoverRing || ringDrag || modelAwake) ? 1 : 0.84;
     }
 
     // Sync ghost wireframe, crater point light intensity & visibility
@@ -2615,18 +2537,19 @@ export function createTabletop({
     // Low-frequency dock redraw: 3D playhead handles 90 Hz motion; progress fill updates at ~120 steps
     const curSpd = getSpeed ? getSpeed() : (stNow.speed || 1);
     const dockKey = [
-      Math.round(stNow.p * 120),
+      Math.round(stNow.p * 120), deskHint(), Math.round(holder.scale.x * 65),
       stNow.phase,
       stNow.timeText || '',
       stNow.clockText || '',
-      Math.round(curSpd * 100),
       stNow.playing ? 1 : 0,
       stNow.erupting ? 1 : 0,
       openDrawer || '',
       hoverDockId || '',
       activeSlider?.surface === 'dock' ? activeSlider.id : '',
     ].join('|');
-    if (dockKey !== lastDockKey) {
+    const now = performance.now();
+    if (placed && dockKey !== lastDockKey && (!lastDockKey || now - lastDockDraw >= 55)) {
+      lastDockDraw = now;
       lastDockKey = dockKey;
       drawDock(stNow);
     }

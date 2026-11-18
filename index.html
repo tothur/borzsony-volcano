@@ -235,11 +235,12 @@ body:not(.show-labels) .label { display: none; }
   display: inline-flex; align-items: center; gap: 9px; white-space: nowrap;
   transition: background .15s, border-color .15s, transform .15s var(--ease);
 }
+.quest-btn[hidden] { display: none; }
 .quest-btn:hover { background: rgba(28, 34, 38, .94); border-color: var(--ember); }
 .quest-btn svg { width: 18px; height: 18px; color: var(--ember); flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 </style>
 
-<button id="questMode" class="quest-btn glass" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg><span>Place on table · Quest MR</span></button>
+<button id="questMode" class="quest-btn glass" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg><span>Open Quest tabletop</span></button>
 <style>body.in-xr > :not(#stage):not(script):not(style){visibility:hidden}body.in-xr .label{display:none}</style>
 <div id="stage" aria-label="3D view of the Börzsöny Mountains"></div>
 
@@ -342,7 +343,7 @@ body:not(.show-labels) .label { display: none; }
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { createTabletop } from './quest-tabletop.mjs?v=20261116c';
+import { createTabletop } from './quest-tabletop.mjs?v=20261118-desk';
 import { eruptionClock, domeEvolution, summitHeight, SUMMIT_GLSL, createEruption } from './eruption-model.mjs?v=20261116c';
 import { clipmapCenter } from './terrain-lod.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';

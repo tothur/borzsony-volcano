@@ -44,6 +44,8 @@ const {
   STAGE_PILLS,
   hitTestSurface,
   hitTestPanel,
+  isDeskSurface,
+  applyDeskGesture,
   buildTabletopTerrainGeometry,
 } = await import('../quest-tabletop.mjs');
 
@@ -132,4 +134,31 @@ test('hitTestSurface and hitTestPanel resolve every dock and drawer control clea
   assert.equal(hitTestPanel(-0.1, 0.5), null);
   assert.equal(hitTestPanel(1.1, 0.5), null);
   assert.equal(hitTestPanel(NaN, 0.5), null);
+});
+
+
+test('desk placement accepts upward-facing surfaces and rejects steep, vertical and inverted hits', () => {
+  for (const [tilt, accepted] of [[0, true], [18, true], [25, false], [90, false], [180, false]]) {
+    const matrix = new Float32Array(16);
+    matrix[5] = Math.cos(tilt * Math.PI / 180);
+    assert.equal(isDeskSurface(matrix), accepted);
+  }
+  assert.equal(isDeskSurface(null), false);
+});
+
+test('two-hand movement preserves desk height and the finger pivot through rotation and scale limits', () => {
+  const holder = {
+    position: { set(x, y, z) { Object.assign(this, { x, y, z }); } },
+    scale: { setScalar(s) { this.x = this.y = this.z = s; } }, rotation: { y: 0 },
+  };
+  const start = { scale: 1, distance: 0.2, mid: { x: 0.1, z: 0.1 }, position: { x: 0.2, y: 0.72, z: 0.1 },
+    angle: 0, yaw: Math.PI / 4 };
+  for (const [distance, expected] of [[0.4, 2], [0.005, 0.25], [1.6, 3.5]]) {
+    applyDeskGesture(holder, start, { x: 0.3, y: 1.1, z: -0.2 }, distance, Math.PI / 2);
+    assert.equal(holder.position.y, 0.72);
+    assert.equal(holder.scale.x, expected);
+    assert.ok(Math.abs(holder.position.x - 0.3) < 1e-10);
+    assert.ok(Math.abs(holder.position.z - (-0.2 - expected * 0.1)) < 1e-10);
+    assert.equal(holder.rotation.y, Math.PI * 0.75);
+  }
 });
