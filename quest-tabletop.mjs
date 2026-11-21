@@ -91,6 +91,54 @@ export const DRAWER_VIEW_LAYOUT = [
 
 export const PANEL_LAYOUT = DOCK_LAYOUT;
 
+// Standard 25-joint WebXR Hand Input topology for depth-buffer hand occlusion in passthrough MR.
+export const HAND_JOINTS = [
+  'wrist',
+  'thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip',
+  'index-finger-metacarpal', 'index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate', 'index-finger-phalanx-distal', 'index-finger-tip',
+  'middle-finger-metacarpal', 'middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal', 'middle-finger-tip',
+  'ring-finger-metacarpal', 'ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal', 'ring-finger-tip',
+  'pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal', 'pinky-finger-tip',
+];
+
+export const HAND_BONES = [
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 5], [5, 6], [6, 7], [7, 8], [8, 9],
+  [0, 10], [10, 11], [11, 12], [12, 13], [13, 14],
+  [0, 15], [15, 16], [16, 17], [17, 18], [18, 19],
+  [0, 20], [20, 21], [21, 22], [22, 23], [23, 24],
+  // Knuckle & thumb-web cross-bridges to seal finger bases cleanly
+  [6, 11], [11, 16], [16, 21], [2, 6], [1, 6],
+];
+
+const PALM_RING = [0, 1, 2, 6, 11, 16, 21, 20];
+const HAND_DEFAULT_RADII = [
+  0.024,
+  0.014, 0.012, 0.010, 0.0085,
+  0.013, 0.0105, 0.0088, 0.0078, 0.0068,
+  0.013, 0.0108, 0.0090, 0.0080, 0.0070,
+  0.012, 0.0100, 0.0085, 0.0075, 0.0066,
+  0.011, 0.0090, 0.0076, 0.0068, 0.0060,
+];
+
+export function createPalmOccluderGeometry() {
+  const n = PALM_RING.length;
+  const pos = new Float32Array((n + 1) * 2 * 3);
+  const idx = [];
+  const botOff = n + 1;
+  for (let k = 0; k < n; k++) {
+    const a = 1 + k;
+    const b = 1 + ((k + 1) % n);
+    idx.push(0, a, b);
+    idx.push(botOff, botOff + b, botOff + a);
+    idx.push(a, botOff + a, b, b, botOff + a, botOff + b);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geom.setIndex(idx);
+  return geom;
+}
+
 // WebXR exposes the hit surface normal as the Y column of its pose matrix.
 export function isDeskSurface(matrix) {
   return matrix?.[5] >= Math.cos(Math.PI / 9);
@@ -399,71 +447,69 @@ function createTurntableTexture() {
   return tex;
 }
 
-// Fast single-texture-lookup smoke shader for Quest 3 stereo framerate
+// Ultra-fast single-texture-lookup stereo smoke shader for Quest 3 (zero per-pixel pow/trig/divisions)
 const TABLETOP_SMOKE_VS = /* glsl */`
 attribute vec3 iPos;
 attribute float iSize;
 attribute float iRot;
 attribute vec4 iCol;
 attribute vec4 iPar;
-uniform vec3 uCamRLocal, uCamULocal, uCamPosLocal;
+uniform vec3 uCamRLocal, uCamULocal, uCamPosLocal, uSunDirLocal;
 uniform float uPuffScale;
-varying vec2 vUv;
+varying vec2 vAtlasUv;
+varying float vUvY;
 varying vec4 vCol;
-varying vec4 vPar;
-varying float vRot;
-varying vec3 vWP;
-varying float vDist;
-varying float vSize;
+varying vec2 vHeatShade;
+varying vec2 vCS;
+varying float vFade;
+varying float vSilver;
 void main() {
   vec2 q = position.xy;
   float c = cos(iRot), s = sin(iRot);
   vec2 r = vec2(c * q.x - s * q.y, s * q.x + c * q.y);
-  float sz = iSize * uPuffScale;
+  float sz = max(iSize * uPuffScale, 1.0);
   vec3 wp = iPos + (uCamRLocal * r.x + uCamULocal * r.y) * sz;
-  vUv = q + 0.5;
+  vec2 uv = q + 0.5;
+  vec2 cell = vec2(mod(iPar.y, 2.0), floor(iPar.y * 0.5));
+  vAtlasUv = (cell + uv) * 0.5;
+  vUvY = uv.y;
   vCol = iCol;
-  vPar = iPar;
-  vRot = iRot;
-  vWP = wp;
-  vSize = sz;
-  vDist = length(wp - uCamPosLocal);
+  vHeatShade = vec2(iPar.x, iPar.w);
+  vCS = vec2(c, s);
+  vec3 toP = wp - uCamPosLocal;
+  float dist = length(toP);
+  vFade = smoothstep(-0.08, 0.30, (wp.y - iPar.z) / sz) * smoothstep(0.15, 0.80, dist / sz);
+  float sf = dist > 1e-3 ? max(dot(toP / dist, uSunDirLocal), 0.0) : 0.0;
+  float sf2 = sf * sf;
+  vSilver = sf2 * sf2 * sf * 1.5;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
 }`;
 
 const TABLETOP_SMOKE_FS = /* glsl */`
 uniform sampler2D tAtlas;
-uniform vec3 uCamRLocal, uCamULocal, uCamBLocal, uCamPosLocal, uSunDirLocal, uSunCol, uSky, uBounce;
+uniform vec3 uCamRLocal, uCamULocal, uCamBLocal, uSunDirLocal, uSunCol, uSky, uBounce;
 uniform float uSmokeBoost;
-varying vec2 vUv;
+varying vec2 vAtlasUv;
+varying float vUvY;
 varying vec4 vCol;
-varying vec4 vPar;
-varying float vRot;
-varying vec3 vWP;
-varying float vDist;
-varying float vSize;
+varying vec2 vHeatShade;
+varying vec2 vCS;
+varying float vFade;
+varying float vSilver;
 void main() {
-  vec2 cell = vec2(mod(vPar.y, 2.0), floor(vPar.y / 2.0));
-  vec4 tx = texture2D(tAtlas, (cell + vUv) * 0.5);
-  float rawA = tx.a * vCol.a;
-  if (rawA < 0.005) discard;
-  float a = 1.0 - pow(1.0 - clamp(rawA, 0.0, 0.99), uSmokeBoost);
-  a *= smoothstep(-0.08, 0.3, (vWP.y - vPar.z) / max(vSize, 1.0));
-  a *= smoothstep(0.15, 0.8, vDist / max(vSize, 1.0));
-  if (a < 0.008) discard;
+  vec4 tx = texture2D(tAtlas, vAtlasUv);
+  float rawA = tx.a * vCol.a * vFade;
+  if (rawA < 0.025) discard;
+  float a = clamp(rawA * (uSmokeBoost - (uSmokeBoost - 1.0) * rawA), 0.0, 0.96);
   vec2 nxy = tx.rg * 2.0 - 1.0;
   float nz = sqrt(max(0.0, 1.0 - dot(nxy, nxy)));
-  float c = cos(vRot), s = sin(vRot);
-  vec2 nr = vec2(c * nxy.x - s * nxy.y, s * nxy.x + c * nxy.y);
+  vec2 nr = vec2(vCS.x * nxy.x - vCS.y * nxy.y, vCS.y * nxy.x + vCS.x * nxy.y);
   vec3 n = normalize(uCamRLocal * nr.x + uCamULocal * nr.y + uCamBLocal * nz * 0.8);
-  float ndl = dot(n, uSunDirLocal);
-  float diff = clamp((ndl + 0.35) / 1.35, 0.0, 1.0);
+  float diff = clamp((dot(n, uSunDirLocal) + 0.35) * 0.7407, 0.0, 1.0);
   float thick = tx.b;
-  vec3 light = uSky * (0.65 + 0.35 * n.y) + uBounce * max(-n.y, 0.0) + uSunCol * diff * vPar.w * (1.0 - 0.3 * thick);
-  vec3 col = vCol.rgb * light;
-  vec3 vdir = normalize(vWP - uCamPosLocal);
-  col += uSunCol * vCol.rgb * pow(max(dot(vdir, uSunDirLocal), 0.0), 5.0) * (1.0 - thick) * 1.5;
-  col += vec3(1.0, 0.38, 0.09) * vPar.x * (0.4 + thick) * smoothstep(0.85, 0.1, vUv.y) * 2.9;
+  vec3 light = uSky * (0.65 + 0.35 * n.y) + uBounce * max(-n.y, 0.0) + uSunCol * diff * vHeatShade.y * (1.0 - 0.3 * thick);
+  vec3 col = vCol.rgb * (light + uSunCol * vSilver * (1.0 - thick));
+  col += vec3(1.0, 0.38, 0.09) * vHeatShade.x * (0.4 + thick) * smoothstep(0.85, 0.1, vUvY) * 2.9;
   gl_FragColor = vec4(col * a, a);
 }`;
 
@@ -1231,8 +1277,8 @@ export function createTabletop({
       uSunCol: { value: new THREE.Color(1.0, 0.93, 0.82).multiplyScalar(1.45) },
       uSky: { value: new THREE.Color(0.36, 0.40, 0.46) },
       uBounce: { value: new THREE.Color(0.14, 0.12, 0.10) },
-      uPuffScale: { value: 1.24 },
-      uSmokeBoost: { value: 1.55 },
+      uPuffScale: { value: 1.16 },
+      uSmokeBoost: { value: 1.48 },
       uWorldScale: { value: baseScale },
     };
 
@@ -1388,6 +1434,59 @@ export function createTabletop({
     scene.add(m);
     return m;
   });
+
+  // Depth-only tracked hand occlusion meshes (render first so real passthrough hands occlude virtual terrain, smoke & UI)
+  const handOccMat = new THREE.MeshBasicMaterial({
+    colorWrite: false,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.DoubleSide,
+  });
+  const handJointInst = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1, 12, 10),
+    handOccMat,
+    HAND_JOINTS.length * 2,
+  );
+  handJointInst.count = 0;
+  handJointInst.visible = false;
+  handJointInst.frustumCulled = false;
+  handJointInst.renderOrder = -100;
+  scene.add(handJointInst);
+
+  const handBoneInst = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(1, 1, 1, 10, 1),
+    handOccMat,
+    (HAND_BONES.length + 1) * 2,
+  );
+  handBoneInst.count = 0;
+  handBoneInst.visible = false;
+  handBoneInst.frustumCulled = false;
+  handBoneInst.renderOrder = -100;
+  scene.add(handBoneInst);
+
+  const handPalmMeshes = [0, 1].map(() => {
+    const mesh = new THREE.Mesh(createPalmOccluderGeometry(), handOccMat);
+    mesh.visible = false;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = -100;
+    scene.add(mesh);
+    return mesh;
+  });
+
+  // Pre-allocated scratch buffers for zero-GC 90 Hz hand occlusion updates
+  const handPosBuf = HAND_JOINTS.map(() => new THREE.Vector3());
+  const handRadBuf = new Float32Array(HAND_JOINTS.length);
+  const handValidBuf = new Uint8Array(HAND_JOINTS.length);
+  const _hMat = new THREE.Matrix4();
+  const _hQuat = new THREE.Quaternion();
+  const _hScale = new THREE.Vector3();
+  const _hDir = new THREE.Vector3();
+  const _hMid = new THREE.Vector3();
+  const _hNrm = new THREE.Vector3();
+  const _hEdgeA = new THREE.Vector3();
+  const _hEdgeB = new THREE.Vector3();
+  const _hCenter = new THREE.Vector3();
+  const _hIdentityQuat = new THREE.Quaternion();
 
   // Desk console, chapter/view sheet and independently animated playhead.
   const uiRoot = new THREE.Group();
@@ -1548,6 +1647,8 @@ export function createTabletop({
   let lastBakedHeightKey = '';
   let lastBakeAt = 0;
   let lastSmokeSeq = -1;
+  let lastGlowSeq = -1;
+  const smokeUploadOpts = { maxCount: 460, cx, cz, halfSpan: span * 0.56, skipFallout: true };
   let lastLight = '';
   let lastDockKey = '';
   let lastDockDraw = -Infinity;
@@ -2512,6 +2613,11 @@ export function createTabletop({
       reticle.visible = false;
       cursorDot.visible = false;
       handPinchOrbs.forEach(o => { o.visible = false; });
+      handJointInst.count = 0;
+      handJointInst.visible = false;
+      handBoneInst.count = 0;
+      handBoneInst.visible = false;
+      handPalmMeshes.forEach(m => { m.visible = false; });
       contacts.forEach(h => { h.jointTracked = false; });
       placed = false;
       openDrawer = null;
@@ -2549,6 +2655,7 @@ export function createTabletop({
     lastBakedSeq = -1;
     lastBakedHeightKey = '';
     lastSmokeSeq = -1;
+    lastGlowSeq = -1;
     lastLight = '';
     lastDockKey = '';
     lastDrawerKey = '';
@@ -2614,18 +2721,123 @@ export function createTabletop({
       guide.lookAt(_camPosW);
     }
 
+    let occJointCount = 0;
+    let occBoneCount = 0;
     for (let i = 0; i < contacts.length; i++) {
-      const c = controllers[i], contact = contacts[i], orb = handPinchOrbs[i];
+      const c = controllers[i], contact = contacts[i], orb = handPinchOrbs[i], palmMesh = handPalmMeshes[i];
       const hand = c.userData.source?.hand;
-      const tip = hand?.get('index-finger-tip');
-      const thumb = hand?.get('thumb-tip');
-      const a = tip && space && frame?.getJointPose?.(tip, space);
-      const b = thumb && space && frame?.getJointPose?.(thumb, space);
-      contact.jointTracked = !!(a && b);
-      if (contact.jointTracked) {
-        const p = a.transform.position, q = b.transform.position;
-        contact.joint.set((p.x + q.x) / 2, (p.y + q.y) / 2, (p.z + q.z) / 2);
-        orb.position.copy(contact.joint);
+      if (hand && space && frame?.getJointPose) {
+        let trackedCount = 0;
+        for (let j = 0; j < HAND_JOINTS.length; j++) {
+          const js = hand.get(HAND_JOINTS[j]);
+          const jp = js && frame.getJointPose(js, space);
+          if (jp) {
+            const p = jp.transform.position;
+            handPosBuf[j].set(p.x, p.y, p.z);
+            const rawR = jp.radius;
+            handRadBuf[j] = Number.isFinite(rawR) && rawR > 0.002 ? clamp(rawR, 0.005, 0.034) : HAND_DEFAULT_RADII[j];
+            handValidBuf[j] = 1;
+            trackedCount++;
+            const r = handRadBuf[j];
+            _hScale.set(r, r, r);
+            _hMat.compose(handPosBuf[j], _hIdentityQuat, _hScale);
+            handJointInst.setMatrixAt(occJointCount++, _hMat);
+          } else {
+            handValidBuf[j] = 0;
+          }
+        }
+
+        // Connect adjacent phalanges, metacarpals & knuckle bridges with depth-mask cylinders
+        for (let b = 0; b < HAND_BONES.length; b++) {
+          const [ia, ib] = HAND_BONES[b];
+          if (!handValidBuf[ia] || !handValidBuf[ib]) continue;
+          const pa = handPosBuf[ia], pb = handPosBuf[ib];
+          _hDir.subVectors(pb, pa);
+          const len = _hDir.length();
+          if (len < 1e-4) continue;
+          _hDir.multiplyScalar(1 / len);
+          _hQuat.setFromUnitVectors(_up, _hDir);
+          _hMid.addVectors(pa, pb).multiplyScalar(0.5);
+          const r = (handRadBuf[ia] + handRadBuf[ib]) * 0.5;
+          _hScale.set(r, len, r);
+          _hMat.compose(_hMid, _hQuat, _hScale);
+          handBoneInst.setMatrixAt(occBoneCount++, _hMat);
+        }
+
+        // Short wrist cuff extension behind the heel of the palm
+        if (handValidBuf[0] && handValidBuf[10]) {
+          _hDir.subVectors(handPosBuf[0], handPosBuf[10]);
+          const dl = _hDir.length();
+          if (dl > 1e-4) {
+            _hDir.multiplyScalar(1 / dl);
+            const cuffLen = 0.055;
+            const cuffR = clamp(handRadBuf[0] * 1.06, 0.022, 0.036);
+            _hQuat.setFromUnitVectors(_up, _hDir);
+            _hMid.copy(handPosBuf[0]).addScaledVector(_hDir, cuffLen * 0.45);
+            _hScale.set(cuffR, cuffLen, cuffR);
+            _hMat.compose(_hMid, _hQuat, _hScale);
+            handBoneInst.setMatrixAt(occBoneCount++, _hMat);
+          }
+        }
+
+        // Solid anatomical palm hull so terrain & smoke never peek through the palm
+        let palmOk = trackedCount >= 8;
+        if (palmOk) {
+          for (let k = 0; k < PALM_RING.length; k++) {
+            if (!handValidBuf[PALM_RING[k]]) { palmOk = false; break; }
+          }
+        }
+        if (palmOk) {
+          _hEdgeA.subVectors(handPosBuf[6], handPosBuf[0]);
+          _hEdgeB.subVectors(handPosBuf[21], handPosBuf[0]);
+          _hNrm.crossVectors(_hEdgeA, _hEdgeB);
+          const nLen = _hNrm.length();
+          if (nLen > 1e-6) {
+            _hNrm.multiplyScalar(1 / nLen);
+            const halfThick = clamp((handRadBuf[10] || 0.012) * 0.90, 0.0085, 0.015);
+            _hCenter.set(0, 0, 0);
+            const n = PALM_RING.length;
+            for (let k = 0; k < n; k++) _hCenter.add(handPosBuf[PALM_RING[k]]);
+            _hCenter.multiplyScalar(1 / n);
+
+            const attr = palmMesh.geometry.attributes.position;
+            const arr = attr.array;
+            const botOff = (n + 1) * 3;
+            arr[0] = _hCenter.x + _hNrm.x * halfThick;
+            arr[1] = _hCenter.y + _hNrm.y * halfThick;
+            arr[2] = _hCenter.z + _hNrm.z * halfThick;
+            arr[botOff] = _hCenter.x - _hNrm.x * halfThick;
+            arr[botOff + 1] = _hCenter.y - _hNrm.y * halfThick;
+            arr[botOff + 2] = _hCenter.z - _hNrm.z * halfThick;
+            for (let k = 0; k < n; k++) {
+              const p = handPosBuf[PALM_RING[k]];
+              const topI = (1 + k) * 3;
+              const botI = botOff + topI;
+              arr[topI] = p.x + _hNrm.x * halfThick;
+              arr[topI + 1] = p.y + _hNrm.y * halfThick;
+              arr[topI + 2] = p.z + _hNrm.z * halfThick;
+              arr[botI] = p.x - _hNrm.x * halfThick;
+              arr[botI + 1] = p.y - _hNrm.y * halfThick;
+              arr[botI + 2] = p.z - _hNrm.z * halfThick;
+            }
+            attr.needsUpdate = true;
+            palmMesh.visible = true;
+          } else {
+            palmMesh.visible = false;
+          }
+        } else {
+          palmMesh.visible = false;
+        }
+
+        // Reuse thumb-tip (4) and index-finger-tip (9) for pinch contact midpoint
+        contact.jointTracked = !!(handValidBuf[4] && handValidBuf[9]);
+        if (contact.jointTracked) {
+          contact.joint.addVectors(handPosBuf[9], handPosBuf[4]).multiplyScalar(0.5);
+          orb.position.copy(contact.joint);
+        }
+      } else {
+        contact.jointTracked = false;
+        palmMesh.visible = false;
       }
       orb.visible = placed && contact.jointTracked && (contact.mode === 'joint' || nearTerrain(contact.joint));
       if ((contact.mode && !contactPoint(i)) || (!c.visible &&
@@ -2634,6 +2846,12 @@ export function createTabletop({
         c.userData.releaseSelect();
       }
     }
+    handJointInst.count = occJointCount;
+    handJointInst.visible = occJointCount > 0;
+    if (occJointCount > 0) handJointInst.instanceMatrix.needsUpdate = true;
+    handBoneInst.count = occBoneCount;
+    handBoneInst.visible = occBoneCount > 0;
+    if (occBoneCount > 0) handBoneInst.instanceMatrix.needsUpdate = true;
 
     const left = contacts[0], right = contacts[1];
     if (placed && left.mode && right.mode) {
@@ -2948,12 +3166,14 @@ export function createTabletop({
 
       const seq = stNow.seq ?? stNow.p;
       const angleDiff = _localFwd.dot(_lastSmokeFwd);
-      if (lastSmokeSeq !== seq || angleDiff < 0.997) {
+      if (lastSmokeSeq !== seq || angleDiff < 0.992) {
         lastSmokeSeq = seq;
         _lastSmokeFwd.copy(_localFwd);
-        const liveEst = smoke.activeMax || smoke.max;
-        const stride = liveEst > 2600 ? 3 : liveEst > 1300 ? 2 : 1;
-        smoke.upload(tabletopEU.uCamPosLocal.value, _localFwd, stride);
+        const thinFactor = smoke.upload(tabletopEU.uCamPosLocal.value, _localFwd, smokeUploadOpts) || 1;
+        tabletopEU.uSmokeBoost.value = Math.min(1.88, 1.38 + 0.16 * Math.max(0, thinFactor - 1));
+      }
+      if (lastGlowSeq !== seq) {
+        lastGlowSeq = seq;
         glow.upload();
       }
     }

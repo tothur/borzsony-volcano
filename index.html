@@ -343,7 +343,7 @@ body:not(.show-labels) .label { display: none; }
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { createTabletop } from './quest-tabletop.mjs?v=20261121';
+import { createTabletop } from './quest-tabletop.mjs?v=20261121c';
 import { eruptionClock, domeEvolution, summitHeight, SUMMIT_GLSL, createEruption } from './eruption-model.mjs?v=20261116c';
 import { clipmapCenter } from './terrain-lod.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -1019,21 +1019,22 @@ const EU = {
 const SMOKE_VS = /* glsl */`
 attribute vec3 iPos; attribute float iSize; attribute float iRot; attribute vec4 iCol; attribute vec4 iPar;
 uniform vec3 uCamR, uCamU;
-varying vec2 vUv; varying vec4 vCol; varying vec4 vPar; varying float vRot; varying vec3 vWP; varying float vDist; varying float vSize;
+varying vec2 vUv; varying vec4 vCol; varying vec4 vPar; varying vec2 vCS; varying float vRot; varying vec3 vWP; varying float vDist; varying float vSize;
 void main() {
   vec2 q = position.xy; float c = cos(iRot), s = sin(iRot);
   vec2 r = vec2(c * q.x - s * q.y, s * q.x + c * q.y);
   vec3 wp = iPos + (uCamR * r.x + uCamU * r.y) * iSize;
-  vUv = q + 0.5; vCol = iCol; vPar = iPar; vRot = iRot; vWP = wp; vSize = iSize;
+  vUv = q + 0.5; vCol = iCol; vPar = iPar; vCS = vec2(c, s); vRot = iRot; vWP = wp; vSize = iSize;
   vec4 mv = viewMatrix * vec4(wp, 1.0); vDist = -mv.z;
   gl_Position = projectionMatrix * mv;
 }`;
 const SMOKE_FS = /* glsl */`
 uniform sampler2D tAtlas, tNoiseS; uniform vec3 uCamR, uCamU, uCamB, uSunDir, uSunCol, uSky, uBounce, uFogCol; uniform float uFogD, uTimeS;
-varying vec2 vUv; varying vec4 vCol; varying vec4 vPar; varying float vRot; varying vec3 vWP; varying float vDist; varying float vSize;
+varying vec2 vUv; varying vec4 vCol; varying vec4 vPar; varying vec2 vCS; varying float vRot; varying vec3 vWP; varying float vDist; varying float vSize;
 void main() {
   vec2 cell = vec2(mod(vPar.y, 2.0), floor(vPar.y / 2.0));
   vec4 tx = texture2D(tAtlas, (cell + vUv) * 0.5);
+  if (tx.a * vCol.a < 0.012) discard;
   // fine billows that churn over time; strongest on thin outer lobes
   vec2 nuv = vUv * 1.25 + vec2(vRot * 1.7, vRot * 0.9) + vec2(0.0, uTimeS * 0.004);
   float b1 = texture2D(tNoiseS, nuv).r, b2 = texture2D(tNoiseS, nuv * 2.1 + 0.31 - uTimeS * 0.003).r;
@@ -1045,10 +1046,9 @@ void main() {
   float a = tx.a * vCol.a;
   a *= smoothstep(-0.08, 0.3, (vWP.y - vPar.z) / vSize);          // melt into the ground instead of a hard cut
   a *= smoothstep(0.15, 0.8, vDist / vSize);                        // fade when the camera is inside a puff
-  if (a < 0.004) discard;
+  if (a < 0.008) discard;
   vec2 nxy = tx.rg * 2.0 - 1.0; float nz = sqrt(max(0.0, 1.0 - dot(nxy, nxy)));
-  float c = cos(vRot), s = sin(vRot);
-  vec2 nr = vec2(c * nxy.x - s * nxy.y, s * nxy.x + c * nxy.y);
+  vec2 nr = vec2(vCS.x * nxy.x - vCS.y * nxy.y, vCS.y * nxy.x + vCS.x * nxy.y);
   vec3 n = normalize(uCamR * nr.x + uCamU * nr.y + uCamB * nz * 0.8);
   float ndl = dot(n, uSunDir);
   float diff = clamp((ndl + 0.3) / 1.3, 0.0, 1.0);
@@ -1056,7 +1056,8 @@ void main() {
   vec3 light = uSky * (0.6 + 0.4 * n.y) + uBounce * max(-n.y, 0.0) + uSunCol * diff * vPar.w * (1.0 - 0.35 * thick);
   vec3 col = vCol.rgb * light;
   vec3 vdir = normalize(vWP - cameraPosition);
-  col += uSunCol * vCol.rgb * pow(max(dot(vdir, uSunDir), 0.0), 6.0) * (1.0 - tx.b) * 1.6;      // silver lining toward the sun
+  float sunFwd = max(dot(vdir, uSunDir), 0.0); float sf2 = sunFwd * sunFwd;
+  col += uSunCol * vCol.rgb * (sf2 * sf2 * sf2) * (1.0 - tx.b) * 1.6;      // silver lining toward the sun
   col += vec3(1.0, 0.36, 0.08) * vPar.x * (0.35 + thick) * smoothstep(0.85, 0.1, vUv.y) * 2.5;  // incandescent underglow
   float fog = 1.0 - exp(-uFogD * uFogD * vDist * vDist);
   col = mix(col, uFogCol, fog);
@@ -1104,6 +1105,7 @@ class Smoke {
       kind: new Uint8Array(max), pid: new Int8Array(max), ps: F(), pl: F(), pv: F(), pmax: F(), y0: F() });
     const { g, arr } = makeInstanced(max, { iPos: 3, iSize: 1, iRot: 1, iCol: 4, iPar: 4 });
     this.g = g; this.arr = arr;
+    this._instAttrs = Object.values(g.attributes).filter(a => a.isInstancedBufferAttribute);
     this.mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: EU, vertexShader: SMOKE_VS, fragmentShader: SMOKE_FS, transparent: true, depthWrite: false,
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor }));
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 10; scene.add(this.mesh);
@@ -1125,12 +1127,29 @@ class Smoke {
     this.cur = 0; this.activeMax = 0; this.g.instanceCount = 0;
   }
   // sort far-to-near with a 1024-bucket counting sort and fill the instance buffers
-  upload(cam, fwd = camFwd, stride = 1) {
+  upload(cam, fwd = camFwd, opts = 1) {
+    if (this.activeMax === 0) { this.g.instanceCount = 0; return 1; }
+    const isObj = typeof opts === 'object' && opts !== null;
+    const maxCount = isObj ? (opts.maxCount || 0) : 0;
+    const skipFallout = isObj && !!opts.skipFallout;
+    const halfSpan = isObj ? (opts.halfSpan || 0) : 0;
+    const bx = isObj ? (opts.cx || 0) : 0, bz = isObj ? (opts.cz || 0) : 0;
+    const baseStep = isObj ? Math.max(1, (opts.stride | 0) || 1) : Math.max(1, opts | 0);
     const fx = fwd.x, fy = fwd.y, fz = fwd.z, cx = cam.x, cy = cam.y, cz = cam.z;
-    let n = 0, dmin = 1e9, dmax = -1e9;
-    const step = Math.max(1, stride | 0), limit = this.activeMax;
-    for (let i = 0; i < limit; i += step) {
+    const limit = this.activeMax;
+    const cand = this._cand || (this._cand = new Uint32Array(this.max));
+    let total = 0;
+    for (let i = 0; i < limit; i += baseStep) {
       if (this.age[i] >= this.life[i]) continue;
+      if (skipFallout && this.kind[i] === 5) continue;
+      if (halfSpan > 0 && (Math.abs(this.px[i] - bx) > halfSpan || Math.abs(this.pz[i] - bz) > halfSpan)) continue;
+      cand[total++] = i;
+    }
+    if (total === 0) { this.g.instanceCount = 0; return 1; }
+    let n = 0, dmin = 1e9, dmax = -1e9;
+    const pickStep = maxCount > 0 && total > maxCount ? total / maxCount : 1;
+    for (let f = 0; f < total; f += pickStep) {
+      const i = cand[f | 0];
       const d = (this.px[i] - cx) * fx + (this.py[i] - cy) * fy + (this.pz[i] - cz) * fz;
       this.keys[i] = d; this.order[n++] = i; if (d < dmin) dmin = d; if (d > dmax) dmax = d;
     }
@@ -1149,11 +1168,12 @@ class Smoke {
       A.iPar[k * 4] = this.heat[i]; A.iPar[k * 4 + 1] = this.vari[i]; A.iPar[k * 4 + 2] = this.gy[i]; A.iPar[k * 4 + 3] = this.shade[i];
     }
     this.g.instanceCount = n;
-    for (const a of Object.values(this.g.attributes)) if (a.isInstancedBufferAttribute) {
+    for (const a of this._instAttrs) {
       a.clearUpdateRanges?.();
-      if (n > 0) a.addUpdateRange?.(0, n * a.itemSize);
+      a.addUpdateRange?.(0, n * a.itemSize);
       a.needsUpdate = true;
     }
+    return pickStep;
   }
 }
 // Glowing blocks and bombs. kind: 0 ballistic, 1 rolling, 2 riding a flow
@@ -1165,6 +1185,7 @@ class Glow {
       kind: new Uint8Array(max), pid: new Int8Array(max), ps: F(), pl: F(), pv: F(), pmax: F(), hop: F() });
     const { g, arr } = makeInstanced(max, { iPos: 3, iVel: 3, iSize: 1, iCol: 4 });
     this.g = g; this.arr = arr;
+    this._instAttrs = Object.values(g.attributes).filter(a => a.isInstancedBufferAttribute);
     this.mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: EU, vertexShader: GLOW_VS, fragmentShader: GLOW_FS, transparent: true, depthWrite: false,
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor }));
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 11; scene.add(this.mesh);
@@ -1181,6 +1202,7 @@ class Glow {
     this.cur = 0; this.activeMax = 0; this.g.instanceCount = 0;
   }
   upload() {
+    if (this.activeMax === 0) { this.g.instanceCount = 0; return; }
     const A = this.arr; let n = 0;
     const limit = this.activeMax;
     for (let i = 0; i < limit; i++) {
@@ -1194,9 +1216,10 @@ class Glow {
       n++;
     }
     this.g.instanceCount = n;
-    for (const a of Object.values(this.g.attributes)) if (a.isInstancedBufferAttribute) {
+    if (n === 0) return;
+    for (const a of this._instAttrs) {
       a.clearUpdateRanges?.();
-      if (n > 0) a.addUpdateRange?.(0, n * a.itemSize);
+      a.addUpdateRange?.(0, n * a.itemSize);
       a.needsUpdate = true;
     }
   }
@@ -1751,7 +1774,7 @@ function renderEruption() {
   if(active) {
     const snapshot=eruption.sample(S.clock,fastEruptionSurface);
     for(const d of snapshot.smoke) {
-      const i=smoke.spawn(d.kind,d.x,d.y*exag,d.z,0,0,0,1,d.size,d.size,d.color,d.alpha,d.heat,d.gy??null);
+      const i=smoke.spawn(d.kind,d.x,d.y*exag,d.z,0,0,0,1,d.size,d.size,d.color,d.alpha,d.heat,d.gy??0);
       smoke.age[i]=.25; smoke.size[i]=d.size; smoke.rot[i]=d.seed; smoke.vari[i]=Math.abs(Math.floor(d.seed*17))%4;
       smoke.shade[i]=d.kind===2?.7:1;
     }
@@ -1859,13 +1882,18 @@ const tabletop = createTabletop({
 });
 if(navigator.xr)navigator.xr.isSessionSupported('immersive-ar').then(ok=>{$('questMode').hidden=!ok;}).catch(()=>{});
 $('questMode').onclick=()=>tabletop.enter().catch(error=>{const sp=$('questMode').querySelector('span');if(sp)sp.textContent='Could not start MR: '+error.message;});
+let lastXrApplyAt = -Infinity;
 function frame(now, xrFrame) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if(!tabletop.active)adaptResolution(dt);
   if (goAnim) stepGo(dt);
   if (playing) { const p0 = P; setP(P + dt * simSpeed * (P < P2 ? 0.02 : P < P3 ? 0.004 : 0.028)); if (P >= 1) setPlaying(false);
     if (!tabletop.active && p0 < P2 && P >= P2 && camera.position.distanceTo(new THREE.Vector3(DOME.x, camera.position.y, DOME.z)) > 9000) eruptionView(); }
-  if (P !== appliedP) apply(P);
+  if (P !== appliedP) {
+    const xrThrottle = tabletop.active && playing && ['dome', 'explosion', 'collapse', 'aftermath'].includes(S.phase)
+      && Math.abs(P - appliedP) < 0.003 && (now - lastXrApplyAt) < 30;
+    if (!xrThrottle) { apply(P); lastXrApplyAt = now; }
+  }
 
   // atmosphere
   fogCol.copy(fogClear).lerp(fogPaleo, smooth(0.02, 0.5, S.s));

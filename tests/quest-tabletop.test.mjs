@@ -47,6 +47,9 @@ const {
   isDeskSurface,
   applyDeskGesture,
   buildTabletopTerrainGeometry,
+  HAND_JOINTS,
+  HAND_BONES,
+  createPalmOccluderGeometry,
 } = await import('../quest-tabletop.mjs');
 
 test('buildTabletopTerrainGeometry concentrates resolution at the summit while spanning 16 km', () => {
@@ -160,5 +163,25 @@ test('two-hand movement preserves desk height and the finger pivot through rotat
     assert.ok(Math.abs(holder.position.x - 0.3) < 1e-10);
     assert.ok(Math.abs(holder.position.z - (-0.2 - expected * 0.1)) < 1e-10);
     assert.equal(holder.rotation.y, Math.PI * 0.75);
+  }
+});
+
+test('hand occlusion topology covers all 25 WebXR joints and builds a valid palm hull', () => {
+  assert.equal(HAND_JOINTS.length, 25);
+  assert.equal(HAND_JOINTS[0], 'wrist');
+  assert.equal(HAND_JOINTS[4], 'thumb-tip');
+  assert.equal(HAND_JOINTS[9], 'index-finger-tip');
+  assert.equal(new Set(HAND_JOINTS).size, 25);
+
+  for (const [a, b] of HAND_BONES) {
+    assert.ok(a >= 0 && a < HAND_JOINTS.length && b >= 0 && b < HAND_JOINTS.length && a !== b);
+  }
+
+  const palm = createPalmOccluderGeometry();
+  const vCount = palm.attributes.position.count;
+  assert.equal(vCount, 18);
+  assert.equal(palm.index.length, 32 * 3);
+  for (const idx of palm.index) {
+    assert.ok(idx >= 0 && idx < vCount);
   }
 });
